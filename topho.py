@@ -1,18 +1,35 @@
+# usage: python TOPHO\INSTALL\DIR SOURCE\DIR
+# then images in SOURCE\DIR will be organized in PWD\0~9
+
+# press SPACE to start || re-do
+# press q to stop and move file
+# press 0 ~ 9 to move files to the directory
+# press u to un-do
+# press r to reload (needed to view loading image)
+
 # %%
+import sys
+
+if len(sys.argv) != 2:
+    print("need source directory")
+    sys.exit()
+
+# %%
+from pathlib import Path
+
+SCRIPTDIR = Path(__file__).parent
+target_dir = Path.cwd()
+orig_dir = Path(sys.argv[1])
+
+if not orig_dir.exists():
+    print("source dir not exists!")
+    sys.exit()
+
+files = list((str(path),0) for path in orig_dir.iterdir() if not path.is_dir())
+
 version = "1.0.0"
 
-files = [
-    ("1.png", None),
-    ("2.jpg", None),
-    ("3.jpg", None),
-    ("4.jpg", None),
-    #("4.png", None),
-    ("5.webp", None),
-    ("6.gif", None),
-    ("7.gif", None),
-    ("8.webp", None),
-]
-
+# %%
 from tkinter import *
 from PIL import ImageTk,Image
 
@@ -21,11 +38,11 @@ root.title(f"Topho {version}")
 
 # FIXME for some reason, can't load image from main thread... :/
 # default_img = front_queue()[0]
-blank_img = ImageTk.PhotoImage(Image.new('RGB', (500, 500)))
-loading_img = ImageTk.PhotoImage(Image.open('loading.jpg'))
-broken_img = ImageTk.PhotoImage(Image.open('broken.png'))
-start_img = ImageTk.PhotoImage(Image.open('start.png'))
-end_img = ImageTk.PhotoImage(Image.open('end.png'))
+blank_img   = ImageTk.PhotoImage(Image.new('RGB', (500, 500)))
+loading_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'loading.jpg')))
+broken_img  = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'broken.png')))
+start_img   = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'start.png')))
+end_img     = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'end.png')))
 
 
 from collections import deque
@@ -206,10 +223,10 @@ def show_current(start=False):
             title = "LOADING"
         elif ret[0] is None: # image broken..
             img = broken_img
-            title = (ret[2] or "0") + " " + ret[1]
+            title = str(ret[2]) + " " + ret[1]
         else:
             img = ret[0]
-            title = (ret[2] or "0") + " " + ret[1]
+            title = str(ret[2]) + " " + ret[1]
 
     lab.config(image=img)
     lab.grid(row=0,column=1,columnspan=3)
@@ -243,7 +260,7 @@ def key_press(e):
         ret = front_queue.get(block=False)
         if ret: # no more data, do nothing
             img, orig_path, _ = ret
-            back_queue.put((img, orig_path, last_key))
+            back_queue.put((img, orig_path, int(last_key)))
         show_current()
 
     elif last_key == 'u':
@@ -264,8 +281,7 @@ def key_press(e):
         #print("redo")
         ret = front_queue.get(block=False)
         if ret: # no more data, do nothing
-            img, orig_path, dir = ret
-            back_queue.put((img, orig_path, dir or "0"))
+            back_queue.put(ret)
         show_current()
 
 
@@ -281,4 +297,42 @@ root.mainloop()
 front_queue.quit()
 back_queue.quit()
 
-for a,b in back_queue.flush(): print(b, a)
+
+result = back_queue.flush()
+
+# %%
+
+dst_dirs = [] # :: [ (path, created_by_program?) ]
+
+for i in range(10):
+    dirpath = target_dir / str(i)
+    if dirpath.exists():
+        while dirpath.exists() and not dirpath.is_dir():
+            dirpath = target_dir / (dirpath.name + "_")
+    if not dirpath.exists():
+        dirpath.mkdir()
+        dst_dirs.append((dirpath,True))
+    else:
+        dst_dirs.append((dirpath,False))
+
+for path, dir in result:
+    cur = Path(path)
+    dst = dst_dirs[dir][0] / cur.name
+    if not cur.exists():
+        print(str(cur) + " is missing!")
+        continue
+    if dst.exists():
+        print(str(dst) + " exists!")
+        continue
+        # FIXME
+    cur.replace(dst)
+
+for dirpath, created in dst_dirs:
+    if not created: continue
+    try:
+        dirpath.rmdir()
+    except OSError:
+        # error occures when dir is nonempty
+        # we only want to remove unneccessary empty dirs that we created
+        pass
+
