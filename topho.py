@@ -8,6 +8,20 @@
 # press r to reload (needed to view loading image)
 
 # %%
+
+# from https://gist.github.com/aaomidi/0a3b5c9bd563c9e012518b495410dc0e
+VIDEO_EXTS = set([ # play with mpv
+    "webm", "mkv", "flv", "vob", "ogv", "ogg", "rrc", "gifv", "mng", "mov", "avi", "qt", "wmv", "yuv", "rm", "asf", "amv", "mp4", "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv", "m4v", "svi", "3gp", "3g2", "mxf", "roq", "nsv", "flv", "f4v", "f4p", "f4a", "f4b", "mod",
+
+    "gif",
+])
+
+# from https://github.com/arthurvr/image-extensions/blob/master/image-extensions.json
+IMAGE_EXTS = set([ # render on the window
+    "ase", "art", "bmp", "blp", "cd5", "cit", "cpt", "cr2", "cut", "dds", "dib", "djvu", "egt", "exif", "gpl", "grf", "icns", "ico", "iff", "jng", "jpeg", "jpg", "jfif", "jp2", "jps", "lbm", "max", "miff", "mng", "msp", "nef", "nitf", "ota", "pbm", "pc1", "pc2", "pc3", "pcf", "pcx", "pdn", "pgm", "PI1", "PI2", "PI3", "pict", "pct", "pnm", "pns", "ppm", "psb", "psd", "pdd", "psp", "px", "pxm", "pxr", "qfx", "raw", "rle", "sct", "sgi", "rgb", "int", "bw", "tga", "tiff", "tif", "vtf", "xbm", "xcf", "xpm", "3dv", "amf", "ai", "awg", "cgm", "cdr", "cmx", "dxf", "e2d", "egt", "eps", "fs", "gbr", "odg", "svg", "stl", "vrml", "x3d", "sxd", "v2d", "vnd", "wmf", "emf", "art", "xar", "png", "webp", "jxr", "hdp", "wdp", "cur", "ecw", "iff", "lbm", "liff", "nrrd", "pam", "pcx", "pgf", "sgi", "rgb", "rgba", "bw", "int", "inta", "sid", "ras", "sun", "tga", "heic", "heif",
+])
+
+# %%
 import sys
 
 if len(sys.argv) != 2:
@@ -25,7 +39,7 @@ if not orig_dir.exists():
     print("source dir not exists!")
     sys.exit()
 
-files = list((str(path),0) for path in orig_dir.iterdir() if not path.is_dir())
+files = list((path,0) for path in orig_dir.iterdir() if not path.is_dir())
 
 version = "1.0.0"
 
@@ -39,8 +53,10 @@ root.title(f"Topho {version}")
 # FIXME for some reason, can't load image from main thread... :/
 # default_img = front_queue()[0]
 blank_img   = ImageTk.PhotoImage(Image.new('RGB', (500, 500)))
+unrecog_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'unrecognized.jpg')))
 loading_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'loading.jpg')))
 broken_img  = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'broken.png')))
+video_img   = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'video.png')))
 start_img   = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'start.png')))
 end_img     = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'end.png')))
 
@@ -168,12 +184,15 @@ class ImageLoadingQueue:
         # sleep(5)
 
         path, info = self.waiting.pop()
-        try: # ensures `path` never get lost
-            img = ImageTk.PhotoImage(Image.open(path))
-        except:
+        if path.suffix[1:] in IMAGE_EXTS:
+            try: # ensures `path` never get lost
+                img = ImageTk.PhotoImage(Image.open(str(path)))
+            except:
+                img = False
+        elif path.suffix[1:] in VIDEO_EXTS:
+            img = 'video'
+        else: # unrecognized
             img = None
-
-        # TODO handle error
 
         self.queue.append((img, path, info))
         self.loaded.release() # increase
@@ -194,8 +213,8 @@ class ImageLoadingQueue:
     def print(self, *args, **kargs):
         if self.debug: print(*args, **kargs)
 
-front_queue = ImageLoadingQueue(files, 2, 10, debug=False)
-back_queue  = ImageLoadingQueue([], 2, 3, debug=True)
+front_queue = ImageLoadingQueue(files, 2, 10)
+back_queue  = ImageLoadingQueue([], 2, 3)
 
 front_queue.run()
 back_queue.run()
@@ -208,8 +227,10 @@ last_key = None
 key_released = True
 started = False
 
+import subprocess
+
 def show_current(start=False):
-    print(f"show_current")
+    #print(f"show_current")
     if not started:
         img = start_img
         title = f"Topho {version}"
@@ -221,12 +242,17 @@ def show_current(start=False):
         elif not ret: # loading
             img = loading_img
             title = "LOADING"
-        elif ret[0] is None: # image broken..
-            img = broken_img
-            title = str(ret[2]) + " " + ret[1]
         else:
             img = ret[0]
-            title = str(ret[2]) + " " + ret[1]
+            title = str(ret[2]) + " " + ret[1].name
+
+    if img is None: # unrecognized type
+        img = unrecog_img
+    elif not img: # image broken..
+        img = broken_img
+    elif img == 'video':
+        img = video_img
+        subprocess.Popen(["mpv", "--loop=inf", ret[1]])
 
     lab.config(image=img)
     lab.grid(row=0,column=1,columnspan=3)
@@ -285,12 +311,12 @@ def key_press(e):
         show_current()
 
 
-def key_released(e):
+def key_release(e):
     global last_key, key_released
     key_released = True
 
 root.bind('<KeyPress>', key_press)
-root.bind('<KeyRelease>', key_released )
+root.bind('<KeyRelease>', key_release)
 
 root.mainloop()
 
@@ -315,8 +341,7 @@ for i in range(10):
     else:
         dst_dirs.append((dirpath,False))
 
-for path, dir in result:
-    cur = Path(path)
+for cur, dir in result:
     dst = dst_dirs[dir][0] / cur.name
     if not cur.exists():
         print(str(cur) + " is missing!")
@@ -326,6 +351,7 @@ for path, dir in result:
         continue
         # FIXME
     cur.replace(dst)
+    #print("moving " + str(cur) + " to " + str(dst) + "!")
 
 for dirpath, created in dst_dirs:
     if not created: continue
