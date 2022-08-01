@@ -21,6 +21,10 @@ IMAGE_EXTS = set([ # render on the window
     "ase", "art", "bmp", "blp", "cd5", "cit", "cpt", "cr2", "cut", "dds", "dib", "djvu", "egt", "exif", "gpl", "grf", "icns", "ico", "iff", "jng", "jpeg", "jpg", "jfif", "jp2", "jps", "lbm", "max", "miff", "mng", "msp", "nef", "nitf", "ota", "pbm", "pc1", "pc2", "pc3", "pcf", "pcx", "pdn", "pgm", "PI1", "PI2", "PI3", "pict", "pct", "pnm", "pns", "ppm", "psb", "psd", "pdd", "psp", "px", "pxm", "pxr", "qfx", "raw", "rle", "sct", "sgi", "rgb", "int", "bw", "tga", "tiff", "tif", "vtf", "xbm", "xcf", "xpm", "3dv", "amf", "ai", "awg", "cgm", "cdr", "cmx", "dxf", "e2d", "egt", "eps", "fs", "gbr", "odg", "svg", "stl", "vrml", "x3d", "sxd", "v2d", "vnd", "wmf", "emf", "art", "xar", "png", "webp", "jxr", "hdp", "wdp", "cur", "ecw", "iff", "lbm", "liff", "nrrd", "pam", "pcx", "pgf", "sgi", "rgb", "rgba", "bw", "int", "inta", "sid", "ras", "sun", "tga", "heic", "heif",
 ])
 
+# TODO make parameterizable
+MAX_WIDTH = 1000
+MAX_HEIGHT = 800
+
 # %%
 import sys
 
@@ -33,7 +37,8 @@ from pathlib import Path
 
 SCRIPTDIR = Path(__file__).parent
 target_dir = Path.cwd()
-orig_dir = Path(sys.argv[1])
+#orig_dir = Path(sys.argv[1])
+orig_dir = Path("images")
 
 if not orig_dir.exists():
     print("source dir not exists!")
@@ -47,18 +52,28 @@ version = "1.0.0"
 from tkinter import *
 from PIL import ImageTk,Image
 
+def load_tk_image(path):
+    img = Image.open(str(path))
+    width, height = img.size
+    ratio = min(MAX_WIDTH/width, MAX_HEIGHT/height)
+    if ratio < 1 or 5 < ratio:
+        # int cast is mandatory. otherwise, it returns None
+        img = img.resize((int(width*ratio), int(height*ratio)), Image.ANTIALIAS)
+    return ImageTk.PhotoImage(img)
+
+
 root = Tk()
 root.title(f"Topho {version}")
 
 # FIXME for some reason, can't load image from main thread... :/
 # default_img = front_queue()[0]
 blank_img   = ImageTk.PhotoImage(Image.new('RGB', (500, 500)))
-unrecog_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'unrecognized.png')))
-loading_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'loading.png')))
-broken_img  = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'broken.png')))
-video_img   = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'video.png')))
-start_img   = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'start.png')))
-end_img     = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'end.png')))
+unrecog_img = load_tk_image(SCRIPTDIR/'unrecognized.png')
+loading_img = load_tk_image(SCRIPTDIR/'loading.png')
+broken_img  = load_tk_image(SCRIPTDIR/'broken.png')
+video_img   = load_tk_image(SCRIPTDIR/'video.png')
+start_img   = load_tk_image(SCRIPTDIR/'start.png')
+end_img     = load_tk_image(SCRIPTDIR/'end.png')
 
 
 from collections import deque
@@ -186,7 +201,7 @@ class ImageLoadingQueue:
         path, info = self.waiting.pop()
         if path.suffix[1:] in IMAGE_EXTS:
             try: # ensures `path` never get lost
-                img = ImageTk.PhotoImage(Image.open(str(path)))
+                img = load_tk_image(path)
             except:
                 img = False
         elif path.suffix[1:] in VIDEO_EXTS:

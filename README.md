@@ -120,7 +120,7 @@ zip distr\topho
 
 TODO list
 ------------------
-[ ] resize images to fit into screen
+[v] resize images to fit into screen
 [ ] custom rename rules
 [ ] delete during organizing
 [ ] cancel and quit feature
