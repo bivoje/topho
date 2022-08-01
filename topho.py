@@ -282,7 +282,6 @@ def key_press(e):
         
     elif '0' <= last_key and last_key <= '9':
         #print("do")
-        # organize! move the from front queue to back queue FIXME
         ret = front_queue.get(block=False)
         if ret: # no more data, do nothing
             img, orig_path, _ = ret
