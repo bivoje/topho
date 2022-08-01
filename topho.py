@@ -53,8 +53,8 @@ root.title(f"Topho {version}")
 # FIXME for some reason, can't load image from main thread... :/
 # default_img = front_queue()[0]
 blank_img   = ImageTk.PhotoImage(Image.new('RGB', (500, 500)))
-unrecog_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'unrecognized.jpg')))
-loading_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'loading.jpg')))
+unrecog_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'unrecognized.png')))
+loading_img = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'loading.png')))
 broken_img  = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'broken.png')))
 video_img   = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'video.png')))
 start_img   = ImageTk.PhotoImage(Image.open(str(SCRIPTDIR/'start.png')))
@@ -349,8 +349,8 @@ for cur, dir in result:
         print(str(dst) + " exists!")
         continue
         # FIXME
-    cur.replace(dst)
-    #print("moving " + str(cur) + " to " + str(dst) + "!")
+    #cur.replace(dst)
+    print("moving " + str(cur) + " to " + str(dst) + "!")
 
 for dirpath, created in dst_dirs:
     if not created: continue
