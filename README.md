@@ -111,26 +111,31 @@ After program finishes, all the files from `D:\Pictures\memes` are now moved int
 Considering yourself an advanced user, there are several options to be utilized.
 ```
 > topho.exe -h
-usage: Topho [-h] [--version] [--dry] [--maxw MAXW] [--maxh MAXH]
-             [--frontq_min FQm] [--frontq_max FQM] [--backq_min BQm] [--backq_max BQM]
+usage: Topho [-h] [--version] [--dry] [--maxw MAXW] [--maxh MAXH] [--name_format NAMEF]
+             [--test_names [TEST_NAMES ...]] [--logfile LOGFILE] [--frontq_min FQm] [--frontq_max FQM]
+             [--backq_min BQm] [--backq_max BQM]
              source_dir [target_dir]
 
 Minimallistic utility for manual image organizing
 
 positional arguments:
-  source_dir        path of image directory to organize
-  target_dir        path of directory to store organized images
+  source_dir            path of image directory to organize
+  target_dir            path of directory to store organized images (default: .)
 
 optional arguments:
-  -h, --help        show this help message and exit
-  --version, -v     show program's version number and exit
-  --dry, -n         don't actually move files, only pretend organizing
-  --maxw MAXW       maximum width of image, defaults to screen width * 0.8
-  --maxh MAXH       maximum height of image, defaults to screen height * 0.8
-  --frontq_min FQm  minimum # of images pre-loaded, increase if forward loading is too slow. default=3
-  --frontq_max FQM  maximum # of images kept loaded when un-doing, increase if you frequently undo & redo. default=10
-  --backq_min BQm   minimum # of images loaded for un-doing, increase if backward loading is too slow. default=3
-  --backq_max BQM   maximum # of images kept loaded after organizing, increase if you frequently undo & redo. default=5
+  -h, --help            show this help message and exit
+  --version, -v         show program's version number and exit
+  --dry, -n             don't actually move files, only pretend organizing (default: False)
+  --maxw MAXW           maximum width of image, defaults to screen width * 0.8 (default: 1536)
+  --maxh MAXH           maximum height of image, defaults to screen height * 0.8 (default: 864)
+  --name_format NAMEF   python style formatstring for moved file names, see <NAMEF> section (default: {name})
+  --test_names [TEST_NAMES ...]
+                        if provided, apply name_format on this filename, print then exits (default: None)
+  --logfile LOGFILE     path to log file where unmoved file list will be written (default: topholog.txt)
+  --frontq_min FQm      minimum # of images pre-loaded, increase if forward loading is too slow (default: 3)
+  --frontq_max FQM      maximum # of images kept loaded when un-doing, increase if you frequently undo & redo (default: 10)
+  --backq_min BQm       minimum # of images loaded for un-doing, increase if backward loading is too slow (default: 3)
+  --backq_max BQM       maximum # of images kept loaded after organizing, increase if you frequently undo & redo (default: 5)
 
 NAMEF:
     You can describe new name for moved file using python style formating.
@@ -139,13 +144,14 @@ NAMEF:
     See following sections for available formatting options and variables.
 
 NAMEF variables:
-    index    :int  - enumeration, starting from 1
+    index    :int  - enumeration, starting from 0
     name     :str  - original name of the file
     srcdir   :str  - parent directory of the file, same as <source_dir>
     size     :int  - size of the file in bytes
     created  :time - file creation time
     modified :time - file modification time
     accessed :time - file access time
+    dup      :dup  - enumeration among duplicated names, starting from 0
 
 NAMEF formatting:
     Before anything, note that only attribute access is allowed for variables,
@@ -193,6 +199,18 @@ NAMEF formatting:
       "{created.day:03}" == '002'
     - strftime style formatting
       "{created:%Y_%S}" == '2022_45'
+
+    'dup' type is similar to 'int' type, all arithmetic attbributes are
+    provided but has extended format spec. Normal integer format spec
+    is may preceeded by enclosure specifier of format "<prefix>/<suffix>/".
+    If enclosure specifier exists dup acts in hermit mode, expose itself
+    (and enclosure) only if dup > 0.
+    For example, if there are only 1 file created on 2022-08-02, the
+    formatstring "{created}{dup.x2.m1:==(/)/0^3}" simply yields '2022-08-02'.
+    But if there are 3 of them, they will be renamed as
+    '2022-08-02', '2022-08-02==(010)', '2022-08-02==(030)' in sorted order.
+    Note that hermit mode depends on 'dup' itself not 'dup.x2.m1'.
+    If format_spec is empty, you can omit trailing '/', like "{dup:(/)}"
 ```
 
 
@@ -212,13 +230,16 @@ TODO list
 ------------------
 [v] resize images to fit into screen
 [v] custom rename rules
+[ ] source directory recursive, target sub-directory???
 [ ] safe & powerful custom rename rules (string->int operation, index+size etc)
 [ ] delete during organizing
-[ ] cancel and quit feature
-[ ] handle when dst already exists
-[ ] handle when can't load file
+[ ] trashcan (can contain duplicated names.. & keep sources; restore)
+[v] cancel and quit feature
+[v] handle when dst already exists
+[v] handle when can't load file
 [ ] remove loading right before the end
 [ ] backward loading handling
+[ ] load from error log (possible save manually?)
 
 Images
 ------------------

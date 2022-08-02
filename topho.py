@@ -169,7 +169,8 @@ NAMEF formatting:
     - strftime style formatting
       "{created:%Y_%S}" == '2022_45'
 
-    'dup' type is similar to 'int' type, all arithmetic attbributes are provided but has extended format spec. Normal integer format spec
+    'dup' type is similar to 'int' type, all arithmetic attbributes are
+    provided but has extended format spec. Normal integer format spec
     is may preceeded by enclosure specifier of format "<prefix>/<suffix>/".
     If enclosure specifier exists dup acts in hermit mode, expose itself
     (and enclosure) only if dup > 0.
@@ -207,8 +208,8 @@ parser.add_argument('--backq_min',  type=positive_int, metavar='BQm', default=3,
     help='minimum # of images loaded for un-doing, increase if backward loading is too slow')
 parser.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
     help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
-#args = parser.parse_args()
-args = parser.parse_args("--name_format {created}{dup:(/)/} images --dry".split())
+args = parser.parse_args()
+#args = parser.parse_args("--name_format {created}{dup:(/)/} images --dry".split())
 
 if args.test_names:
     rets = {}
