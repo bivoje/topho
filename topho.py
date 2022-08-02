@@ -1,29 +1,37 @@
 # %%
-from http.client import CREATED
+from datetime import datetime, timezone
 from utils import *
 import os
 import sys
 
-def format_name(formstr, source_dir, path, file_index):
+# little bit tricky since 'path' already contain parent directory information,
+# yet the caller have to re-assemble the returned filename with parent dir.
+# might be clear if format_name was given only the orig filename or returned
+# the whole path.
+# But to check for directory traversing injection, we have to return only the
+# filename, while we'd like to utilize 'Path's stem & suffix feature (Path.name
+# returns a string)
+def format_name(formstr, source_dir, path, index, dup):
     if path.exists():
         size = HandyInt(os.path.getsize(path)),
         created  = HandyTime(datetime.fromtimestamp(os.path.getctime(path)).astimezone())
         modified = HandyTime(datetime.fromtimestamp(os.path.getmtime(path)).astimezone())
         accessed = HandyTime(datetime.fromtimestamp(os.path.getatime(path)).astimezone())
     else:
-        size = HandyInt(2**(6+file_index*4)),
-        created  = HandyTime(datetime(1970,1,2,9,0,0).astimezone()) # smallest possible
+        size = HandyInt(2**(6+index*4)),
+        created  = HandyTime(datetime.utcfromtimestamp(0).astimezone())
         modified = HandyTime(datetime(2013,6,5,21,54,57).astimezone())
         accessed = HandyTime(datetime(2054,6,8,4,13,26).astimezone())
 
     return formstr.format(
-        index = HandyInt(file_index),
+        index = HandyInt(index),
         name = HandyString(path.stem),
         srcdir = HandyString(str(source_dir)),
         size = size,
         created  = created,
         modified = modified,
         accessed = accessed,
+        dup = HermitDup(dup, dup),
     ) + path.suffix
 
 
@@ -65,7 +73,7 @@ def existing_directory(s):
 def nameformat(s):
     try:
         # SCRIPTDIR/'end.png' is guaranteed to exist
-        ret = format_name(s, SCRIPTDIR, SCRIPTDIR/'end.png', 1)
+        ret = format_name(s, SCRIPTDIR, SCRIPTDIR/'end.png', 0, 1)
         if '/' in ret or '\\' in ret:
             raise argparse.ArgumentTypeError("can't use '\\' or '/' in filenames")
 # if we verify there's no '/' or '\', we can be sure'
@@ -96,13 +104,14 @@ NAMEF:
     See following sections for available formatting options and variables.
 
 NAMEF variables:
-    index    :int  - enumeration, starting from 1
+    index    :int  - enumeration, starting from 0
     name     :str  - original name of the file
     srcdir   :str  - parent directory of the file, same as <source_dir>
     size     :int  - size of the file in bytes
     created  :time - file creation time
     modified :time - file modification time
     accessed :time - file access time
+    dup      :dup  - enumeration among duplicated names, starting from 0
 
 NAMEF formatting:
     Before anything, note that only attribute access is allowed for variables,
@@ -150,11 +159,22 @@ NAMEF formatting:
       "{created.day:03}" == '002'
     - strftime style formatting
       "{created:%Y_%S}" == '2022_45'
+
+    'dup' type is similar to 'int' type, all arithmetic attbributes are provided but has extended format spec. Normal integer format spec
+    is may preceeded by enclosure specifier of format "<prefix>/<suffix>/".
+    If enclosure specifier exists dup acts in hermit mode, expose itself
+    (and enclosure) only if dup > 0.
+    For example, if there are only 1 file created on 2022-08-02, the
+    formatstring "{created}{dup.x2.m1:==(/)/0^3}" simply yields '2022-08-02'.
+    But if there are 3 of them, they will be renamed as
+    '2022-08-02', '2022-08-02==(010)', '2022-08-02==(030)' in sorted order.
+    Note that hermit mode depends on 'dup' itself not 'dup.x2.m1'.
+    If format_spec is empty, you can omit trailing '/', like "{dup:(/)}"
 ''')
 
 parser.add_argument('source_dir', type=existing_directory,
     help='path of image directory to organize')
-parser.add_argument('target_dir', type=existing_directory, default=Path.cwd(), nargs='?',
+parser.add_argument('target_dir', type=existing_directory, default=Path('.'), nargs='?',
     help='path of directory to store organized images')
     #nargs='?' makes this positional argument optional https://stackoverflow.com/a/4480202
 parser.add_argument('--version', '-v', action='version', version=f'%(prog)s {VERSION}')
@@ -176,12 +196,17 @@ parser.add_argument('--backq_min',  type=positive_int, metavar='BQm', default=3,
     help='minimum # of images loaded for un-doing, increase if backward loading is too slow')
 parser.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
     help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
-args = parser.parse_args()
-#args = parser.parse_args(['images', '--dry', '--name_format', '{name._4:4} {created:iso} {index.t1}', '--test_name', 'images/1.png','end.png', 'fff'])
+#args = parser.parse_args()
+args = parser.parse_args("--name_format {created}{dup:(/)/} images --dry".split())
 
 if args.test_names:
+    rets = {}
     for i, test_name in enumerate(args.test_names):
-        print(format_name(args.name_format, args.source_dir, test_name, i+1))
+        ret = format_name(args.name_format, args.source_dir, test_name, i, 0)
+        j = rets.get(ret, 0)
+        if j > 0:
+            ret = format_name(args.name_format, args.source_dir, test_name, i, j)
+        rets[ret] = j+1
     sys.exit(0)
 
 
@@ -349,13 +374,20 @@ for i, (cur, dir) in enumerate(result):
         continue
 
     try:
-        dst = dst_dirs[dir][0] / format_name(args.name_format, args.source_dir, cur, i+1)
+        name = format_name(args.name_format, args.source_dir, cur, i, 0)
+        j = names[dir].get(name, 0)
+        if j > 0:
+            name = format_name(args.name_format, args.source_dir, cur, i, j)
+        names[dir][name] = j+1
     except Exception as e:
+        # this is unlikely to happen, but if it does, make sure other files get moved safely
         print(f"while moving '{cur}' to '{dst_dirs[dir][0]}', ")
         print(e)
-        print("skipping!")
-        # this is unlikely to happen, but if it does, make sure other files get moved safely
-        
+        print("please report this to the developer!")
+        continue
+
+    dst = dst_dirs[dir][0] / name
+
     if dst.exists():
         print(str(dst) + " exists!")
         continue

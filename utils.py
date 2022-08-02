@@ -137,6 +137,30 @@ class HandyInt:
     def __format__(self, format_spec):
         return format(self.integer, format_spec)
 
+class HermitDup(HandyInt):
+    def __init__(self, integer, orig):
+        super(HermitDup, self).__init__(integer)
+        self.orig = orig
+
+    # modifying & returnning self would remove this unpack-repack burden
+    # but might be problematic in other uses.
+    def __getattr__(self, key):
+        ret = super(HermitDup, self).__getattr__(key)
+        return HermitDup(ret.integer, self.orig)
+
+    def __format__(self, format_spec):
+        ret = format_spec.split('/', 2)
+        if len(ret) == 2:
+            if self.orig == 0: return ""
+            prefix, suffix = ret
+            spec = ''
+        elif len(ret) == 3:
+            if self.orig == 0: return ""
+            prefix, suffix, spec = ret
+        else:
+            prefix, suffix = '', ''
+            spec = format_spec
+        return prefix + super(HermitDup, self).__format__(spec) + suffix
 
 # %%
 from collections import deque
