@@ -131,6 +131,68 @@ optional arguments:
   --frontq_max FQM  maximum # of images kept loaded when un-doing, increase if you frequently undo & redo. default=10
   --backq_min BQm   minimum # of images loaded for un-doing, increase if backward loading is too slow. default=3
   --backq_max BQM   maximum # of images kept loaded after organizing, increase if you frequently undo & redo. default=5
+
+NAMEF:
+    You can describe new name for moved file using python style formating.
+    For example, giving --name_format="{index}th-image-{name}__{size}bytes"
+    converts "nyancat.gif" to "1th-image-nyancat__1038bytes.gif".
+    See following sections for available formatting options and variables.
+
+NAMEF variables:
+    index    :int  - enumeration, starting from 1
+    name     :str  - original name of the file
+    srcdir   :str  - parent directory of the file, same as <source_dir>
+    size     :int  - size of the file in bytes
+    created  :time - file creation time
+    modified :time - file modification time
+    accessed :time - file access time
+
+NAMEF formatting:
+    Before anything, note that only attribute access is allowed for variables,
+    which means "{index*2}" is cannot be done. So we provide some attribute
+    extension for ease of handling variables.
+
+    For integer types, additional arithmetic attributes are provided as well
+    as basic integer formatting syntax. You can do (asssuming index=9)
+    - .p<n>, .t<n> for addition
+      "{index.p20}" == '29'
+    - .m<n> for subtraction
+      "{index.m10}" == '-1'
+    - .x<n>, .X<n> for multiplication
+      "{index.x3}" == '27'
+    - .d<n> for integer division
+      "{index.d2}" == '4'
+    - .r<n>, .l<n> for remainder (always positive)
+      "{index.l5}" == '4'
+    - mixture of all
+      "{index.p3.x2.4}" == '6'
+    - with integer format_spec
+      "{index.p3.x2.4:+03}" == '+006'
+
+    For string types, start-end slicing attributes are provided along with other
+    basic string formatting syntax. You can do (assuming name=asdf)
+    - ._<n> for maxcap length, same as str[:n]
+      "{name._3}" == 'asd'
+    - ._<n>_<m> to take range [n, <m>), same as str[n:m]
+      "{name._1_3}" == 'sd'
+    - indexing from behind, use 'm' prefix instead of '-' to indicate negative
+      "{name._1_m1}" == 'sd'
+    - complex mixture example
+      "=={name._3:#^7}---" == '==##asd##---'
+
+    For time types, you can use strftime format in format_spec region.
+    See https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
+    for more detailed explanations. Examples follows..
+    - default formatting shows iso-8601 date
+      "{created}" == '2022-08-02'
+    - by specifying 'iso' as format you get full iso-8601 representation
+      "{created:iso}" == '2022-08-02T07:23:45+0900'
+    - accessing 'utc' attribute gives datetime in UTC
+      "{created.utc:iso}" == '2022-08-01T22:23:45+0000'
+    - all attributes of python datatime struct supported
+      "{created.day:03}" == '002'
+    - strftime style formatting
+      "{created:%Y_%S}" == '2022_45'
 ```
 
 
@@ -149,13 +211,14 @@ zip distr\topho
 TODO list
 ------------------
 [v] resize images to fit into screen
-[ ] custom rename rules
+[v] custom rename rules
+[ ] safe & powerful custom rename rules (string->int operation, index+size etc)
 [ ] delete during organizing
 [ ] cancel and quit feature
 [ ] handle when dst already exists
 [ ] handle when can't load file
 [ ] remove loading right before the end
-
+[ ] backward loading handling
 
 Images
 ------------------
