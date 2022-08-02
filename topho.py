@@ -69,6 +69,7 @@ lab.grid(row=0,column=1,columnspan=3)
 last_key = None
 key_released = True
 started = False
+commit = False
 
 import subprocess
 
@@ -106,8 +107,14 @@ def key_press(e):
     if e.char == last_key and not key_released: return
     last_key, key_released = e.char, False
 
-    if last_key == 'q':
+    if last_key == '\x1b':
         #print("quit")
+        root.destroy()
+        return
+
+    if last_key == 'c':
+        #print("commit")
+        commit = True
         root.destroy()
         return
 
@@ -152,7 +159,6 @@ def key_press(e):
             back_queue.put(ret)
         show_current()
 
-
 def key_release(e):
     global last_key, key_released
     key_released = True
@@ -168,6 +174,10 @@ back_queue.quit()
 result = back_queue.flush()
 
 # %%
+import sys
+
+if not commit:
+    sys.exit()
 
 dst_dirs = [] # :: [ (path, created_by_program?) ]
 

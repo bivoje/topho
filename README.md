@@ -87,7 +87,8 @@ Pressing `0`~`9`, `U`, `SPACE` does nothing on `loading_img`, be patient and sti
 
 #### organizing images
 Press `SPACE` to start. From now on, each image of the folder will be displayed and wait for your command.
-- `q`: quit, commit moving files as specified. unspecified files will be left untouched.
+- `ESC`: quit, without commit. all files will be left untouched. (`q` is not mapped to avoid misusing with `mpv`)
+- `c`: quit, commit moving files as specified. unspecified files will be left untouched.
 - `r`: reload the image. you can re-open `mpv` using this.
 - `0`: skip this image. don't move this one.
 - `1` ~ `9`: send the image to folder `i`. (not actually sent, all the file operations are executed when everything is done)
