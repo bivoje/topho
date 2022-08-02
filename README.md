@@ -30,7 +30,7 @@ Simply download mpv and add it to the `PATH` environment.
 
 ### binary
 
-If you downloaded `tohpo_*.zip` from [release page](https://github.com/bivoje/topho/releases/latest), you are using pre-built portable binary.
+You can find pre-built portable binary of `Topho` at [release page](https://github.com/bivoje/topho/releases/latest), files names  `tohpo_*.zip`.
 It is rather big (compared to the source code) but contains every single dependency needed for `Topho`.
 
 Just extract it in any directory you favor then you are set to go.
@@ -89,7 +89,8 @@ Pressing `0`~`9`, `U`, `SPACE` does nothing on `loading_img`, be patient and sti
 Press `SPACE` to start. From now on, each image of the folder will be displayed and wait for your command.
 - `q`: quit, commit moving files as specified. unspecified files will be left untouched.
 - `r`: reload the image. you can re-open `mpv` using this.
-- `0` ~ `9`: send the image to folder `i`. (not actually sent, all the file operations are executed when everything is done)
+- `0`: skip this image. don't move this one.
+- `1` ~ `9`: send the image to folder `i`. (not actually sent, all the file operations are executed when everything is done)
 - `u`: undo sending files. previous decision is not forgetten and can be revoked by `U`.
 - `U`, `SPACE`: redo sending files. if not previously decided, sent to `0` by default.
 
@@ -104,6 +105,32 @@ PS C:\Users\John> cd Desktop\memes
 PS C:\Users\John\Desktop\memes> C:\Users\John\Downloads\topho_1.0.0_x86-64_win\topho.exe D:\Pictures\memes
 ```
 After program finishes, all the files from `D:\Pictures\memes` are now moved into `C:\users\John\Desktop\memes\0~9`.
+
+#### more options!
+Considering yourself an advanced user, there are several options to be utilized.
+```
+> topho.exe -h
+usage: Topho [-h] [--version] [--dry] [--maxw MAXW] [--maxh MAXH]
+             [--frontq_min FQm] [--frontq_max FQM] [--backq_min BQm] [--backq_max BQM]
+             source_dir [target_dir]
+
+Minimallistic utility for manual image organizing
+
+positional arguments:
+  source_dir        path of image directory to organize
+  target_dir        path of directory to store organized images
+
+optional arguments:
+  -h, --help        show this help message and exit
+  --version, -v     show program's version number and exit
+  --dry, -n         don't actually move files, only pretend organizing
+  --maxw MAXW       maximum width of image, defaults to screen width * 0.8
+  --maxh MAXH       maximum height of image, defaults to screen height * 0.8
+  --frontq_min FQm  minimum # of images pre-loaded, increase if forward loading is too slow. default=3
+  --frontq_max FQM  maximum # of images kept loaded when un-doing, increase if you frequently undo & redo. default=10
+  --backq_min BQm   minimum # of images loaded for un-doing, increase if backward loading is too slow. default=3
+  --backq_max BQM   maximum # of images kept loaded after organizing, increase if you frequently undo & redo. default=5
+```
 
 
 Build
@@ -126,6 +153,7 @@ TODO list
 [ ] cancel and quit feature
 [ ] handle when dst already exists
 [ ] handle when can't load file
+[ ] remove loading right before the end
 
 
 Images
