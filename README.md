@@ -240,10 +240,10 @@ TODO list
 [v] handle when can't load file
 [ ] remove loading right before the end
 [ ] backward loading handling
-[ ] load from error log (possible save manually?)
 [v] accept mpv executable path
-[ ] support other programs & options
-[ ] save in mid progress feature
+[ ] support other viewer programs & passing-over options
+[ ] load from error log
+[ ] save in mid progress feature (in cases like out of disk space etc?)
 
 
 Images

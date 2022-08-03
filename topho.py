@@ -44,6 +44,7 @@ from ctypes import windll
 
 VERSION = "1.0.0"
 SCRIPTDIR = Path(__file__).parent
+START_TIME = HandyTime(datetime.now())
 
 def positive_int(s):
     try:
@@ -440,6 +441,7 @@ for i, (cur, dir) in enumerate(result):
         remaining.append('OS', i, j, cur, dir, repr(e))
 
 def write_remainings(f):
+    f.write(f"#Topho {VERSION} {START_TIME:iso}")
     f.write(f"#{args.source_dir.absolute()}\n")
     f.write(f"#{args.target.absolute()}\n")
     f.write(f"#{args.name_format}\n")
