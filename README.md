@@ -23,15 +23,15 @@ Install
 
 ### general dependency
 
-`Topho` uses [mpv media player](https://mpv.io/) to view `.gif` and video files.
-You need to make command `mpv` available on system path.
+`Topho` uses [mpv media player](https://mpv.io/) to view `.gif` and video files. Please install it beforehand.
 
-Simply download mpv and add it to the `PATH` environment.
+If have made command `mpv` available on commandline (by modifying `PATH` environment variable), `Topho` can find it itself.
+Otherwise, you have to specify the path in the option `--mpv path/to/mpv/exe` like (`topho.exe <other options> --mpv C:\Users\John\Downloads\mpv-x86_64-20220320-git-f871294\mpv.exe`)
 
 ### binary
 
-You can find pre-built portable binary of `Topho` at [release page](https://github.com/bivoje/topho/releases/latest), files names  `tohpo_*.zip`.
-It is rather big (compared to the source code) but contains every single dependency needed for `Topho`.
+You can find pre-built portable binary of `Topho` at [release page](https://github.com/bivoje/topho/releases/latest), files named as `tohpo_*.zip`.
+It is rather big (compared to the source code) but contains every single dependency needed for `Topho` to run.
 
 Just extract it in any directory you favor then you are set to go.
 Substitute `<EXE>` with `path\to\topho\installed\topho.exe` in [Usage](##Usage). (e.g. `C:\Users\John\Downloads\topho_1.0.0_x86-64_win\topho.exe`)
@@ -112,7 +112,7 @@ Considering yourself an advanced user, there are several options to be utilized.
 ```
 > topho.exe -h
 usage: Topho [-h] [--version] [--dry] [--maxw MAXW] [--maxh MAXH] [--name_format NAMEF]
-             [--test_names [TEST_NAMES ...]] [--logfile LOGFILE] [--frontq_min FQm] [--frontq_max FQM]
+             [--test_names [TEST_NAMES ...]] [--logfile LOGFILE] [--mpv MPVPATH] [--frontq_min FQm] [--frontq_max FQM]
              [--backq_min BQm] [--backq_max BQM]
              source_dir [target_dir]
 
@@ -132,6 +132,7 @@ optional arguments:
   --test_names [TEST_NAMES ...]
                         if provided, apply name_format on this filename, print then exits (default: None)
   --logfile LOGFILE     path to log file where unmoved file list will be written (default: topholog.txt)
+  --mpv MPVPATH         path to invoke mpv player executable (default: mpv.exe)
   --frontq_min FQm      minimum # of images pre-loaded, increase if forward loading is too slow (default: 3)
   --frontq_max FQM      maximum # of images kept loaded when un-doing, increase if you frequently undo & redo (default: 10)
   --backq_min BQm       minimum # of images loaded for un-doing, increase if backward loading is too slow (default: 3)
@@ -240,13 +241,17 @@ TODO list
 [ ] remove loading right before the end
 [ ] backward loading handling
 [ ] load from error log (possible save manually?)
+[v] accept mpv executable path
+[ ] support other programs & options
+[ ] save in mid progress feature
+
 
 Images
 ------------------
 
 ![start_img](./start.png "start_img")
 ![end_img](./end.png "end_img")
-![loading_img](./loading.jpg "loading_img")
+![loading_img](./loading.png "loading_img")
 ![video_img](./video.png "video_img")
-![unrecog_img](./unrecog.jpg "unrecog_img")
+![unrecog_img](./unrecognized.png "unrecog_img")
 ![broken_img](./broken.png "broken_img")
