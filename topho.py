@@ -5,14 +5,21 @@ from utils import *
 import os
 import sys
 
-# little bit tricky since 'path' already contain parent directory information,
-# yet the caller have to re-assemble the returned filename with parent dir.
-# might be clear if format_name was given only the orig filename or returned
-# the whole path.
-# But to check for directory traversing injection, we have to return only the
-# filename, while we'd like to utilize 'Path's stem & suffix feature (Path.name
-# returns a string)
-def format_name(formstr, source_dir, path, index, dup):
+    # DEPRECATED
+    # little bit tricky since 'path' already contain parent directory information,
+    # yet the caller have to re-assemble the returned filename with parent dir.
+    # might be clear if format_name was given only the orig filename or returned
+    # the whole path.
+    # But to check for directory traversing injection, we have to return only the
+    # filename, while we'd like to utilize 'Path's stem & suffix feature (Path.name
+    # returns a string)
+# Since source_dir may contain '/' or '\', it is eliminated for now.
+# For recursive source_dir & deep target_dir generation support in the future,
+# directory traversing injection detection machanism may change.
+format_name_lookup_cache = {}
+# FIXME what if target_dir not exist?
+def format_name(formstr, index, path, target_dir, exists=lambda p: p.exists()):
+    global format_name_lookup_cache
     if path.exists():
         size = HandyInt(os.path.getsize(path)),
         created  = HandyTime(datetime.fromtimestamp(os.path.getctime(path)).astimezone())
@@ -24,17 +31,38 @@ def format_name(formstr, source_dir, path, index, dup):
         modified = HandyTime(datetime(2013,6,5,21,54,57).astimezone())
         accessed = HandyTime(datetime(2054,6,8,4,13,26).astimezone())
 
-    return formstr.format(
+    gen = lambda dup: target_dir / (formstr.format(
         index = HandyInt(index),
         name = HandyString(path.stem),
-        srcdir = HandyString(str(source_dir)),
+        #srcdir = HandyString(str(path.parent)),
         size = size,
         created  = created,
         modified = modified,
         accessed = accessed,
-        dup = HermitDup(dup, dup),
-    ) + path.suffix
+        dup = HermitDup(dup),
+    ) + path.suffix)
 
+    newpath0 = gen(0)
+
+    if not exists(newpath0): # ret0 is ok to use
+        format_name_lookup_cache[str(newpath0)] = 1
+        return newpath0, 0
+
+    if newpath0 == gen(1): # considering 'dup' is not used in formatstr.
+        # FIXME this assumption might be wrong, add option to bypass (loop increase dup) it??
+        # just return it (probably filename duplication error occures)
+        return newpath0, 0
+        # FIXME what about format_name_lookup_cache?
+
+    # use 1 as default as there already is one file with the name.
+    j = format_name_lookup_cache.get(str(newpath0), 1)
+
+    while True: # FIXME this goes indefinitely.. should I add cap as an option??
+        newpath = gen(j)
+        if not exists(newpath):
+            format_name_lookup_cache[str(newpath0)] = j+1
+            return newpath, j
+        j += 1
 
 # %%
 import argparse
@@ -98,14 +126,20 @@ def executable(s):
 
 # also, since '/', '\' can only come from format string literals, it is easy to check if there
 # is directory-change-injection
-
 def nameformat(s):
     try:
-        # SCRIPTDIR/'end.png' is guaranteed to exist
-        ret = format_name(s, SCRIPTDIR, SCRIPTDIR/'end.png', 0, 1)
-        if '/' in ret or '\\' in ret:
+        ret = s.format( # generate with random
+            index = HandyInt(1),
+            name = HandyString("Bapanada"),
+            #srcdir = HandyString(str(path.parent)),
+            size = 3012,
+            created  = HandyTime(datetime(1970,1,3).astimezone()),
+            modified = HandyTime(datetime(1970,1,3).astimezone()),
+            accessed = HandyTime(datetime(1970,1,3).astimezone()),
+            dup = HermitDup(1),
+        )
+        if '/' in ret or '\\' in ret: # if we verify there's no '/' or '\', we can be sure'
             raise argparse.ArgumentTypeError("can't use '\\' or '/' in filenames")
-# if we verify there's no '/' or '\', we can be sure'
         return s
     # KeyError when accessing non-existing variable
     # AttributeError when accessing invalid attr of HandyTime
@@ -114,6 +148,12 @@ def nameformat(s):
         raise argparse.ArgumentTypeError(f"no variable named {str(e)} provided")
     except (AttributeError, ValueError) as e:
         raise argparse.ArgumentTypeError(str(e))
+    except Exception as e:
+        # other kind of exceptions are an error in the code not namestr
+        # but argparse catches them all and hide the message.
+        # so we print it here for debugging purpose
+        print("BUG! report to the developer!", repr(e))
+        raise e
 
 # https://stackoverflow.com/a/52025430
 class RawTextArgumentDefaultsHelpFormatter(
@@ -135,7 +175,6 @@ NAMEF:
 NAMEF variables:
     index    :int  - enumeration, starting from 0
     name     :str  - original name of the file
-    srcdir   :str  - parent directory of the file, same as <source_dir>
     size     :int  - size of the file in bytes
     created  :time - file creation time
     modified :time - file modification time
@@ -157,8 +196,6 @@ NAMEF formatting:
       "{index.x3}" == '27'
     - .d<n> for integer division
       "{index.d2}" == '4'
-    - .r<n>, .l<n> for remainder (always positive)
-      "{index.l5}" == '4'
     - mixture of all
       "{index.p3.x2.4}" == '6'
     - with integer format_spec
@@ -195,17 +232,17 @@ NAMEF formatting:
     If enclosure specifier exists dup acts in hermit mode, expose itself
     (and enclosure) only if dup > 0.
     For example, if there are only 1 file created on 2022-08-02, the
-    formatstring "{created}{dup.x2.m1:==(/)/0^3}" simply yields '2022-08-02'.
-    But if there are 3 of them, they will be renamed as
-    '2022-08-02', '2022-08-02==(010)', '2022-08-02==(030)' in sorted order.
-    Note that hermit mode depends on 'dup' itself not 'dup.x2.m1'.
+    formatstring "{created}{dup.x2.m2:==(/)/0^3}" simply yields '2022-08-02'.
+    But if there are 4 of them, they will be renamed as (in sorted order)
+    '2022-08-02==(-20)', '2022-08-02', '2022-08-02==(020)' '2022-08-02==(040)'.
+    Note that hermit mode depends on result 'dup.x2.m2' not the original 'dup'.
     If format_spec is empty, you can omit trailing '/', like "{dup:(/)}"
 ''')
 
 parser.add_argument('source_dir', type=existing_directory,
     help='path of image directory to organize')
-parser.add_argument('target_dir', type=existing_directory, default=Path('.'), nargs='?',
-    help='path of directory to store organized images')
+parser.add_argument('target_dir', type=existing_directory, default=None, nargs='?',
+    help='path of directory to store organized images, defaults to current directory')
     #nargs='?' makes this positional argument optional https://stackoverflow.com/a/4480202
 parser.add_argument('--version', '-v', action='version', version=f'%(prog)s {VERSION}')
 parser.add_argument('--dry', '-n', dest='dry', action='store_true',
@@ -235,17 +272,25 @@ parser.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
 args = parser.parse_args()
 #args = parser.parse_args("images --dry".split())
 
+# FIXME not using source_dir while mandatory arg?
 if args.test_names:
-    rets = {}
+    virtual_files = set()
+    if args.target_dir is None:
+        outdir = Path('.')
+        exists = lambda p: p in virtual_files
+    else:
+        outdir = args.target_dir
+        exists = lambda p: p.exists() or p in virtual_files
+
     for i, test_name in enumerate(args.test_names):
-        ret_ = format_name(args.name_format, args.source_dir, test_name, i, 0)
-        j = rets.get(ret_, 0)
-        if j > 0:
-            ret = format_name(args.name_format, args.source_dir, test_name, i, j)
-        else: ret = ret_
-        rets[ret_] = j+1
+        ret, _ = format_name(args.name_format, i, test_name, outdir, exists=exists)
+        virtual_files.add(ret)
         print(ret)
+
     sys.exit(0)
+
+if args.target_dir is None:
+    args.target_dir = Path('.')
 
 # %%
 from tkinter import *
@@ -404,24 +449,15 @@ for i in range(10):
 # files couldn't be moved
 remaining = [] # :: [(reason, idx, dup, path, dir, note)]
 
-# to keep dup-counts
-names = [{}]*10
-
 for i, (cur, dir) in enumerate(result):
     if dir == 0: continue
 
     if not cur.exists():
-        remaining.append(('MISSING', i, j, cur, dir, ''))
+        remaining.append(('MISSING', i, 0, cur, dir, ''))
         continue
 
     try:
-        name_ = format_name(args.name_format, args.source_dir, cur, i, 0)
-        j = names[dir].get(name_, 0)
-        if j > 0:
-            name = format_name(args.name_format, args.source_dir, cur, i, j)
-        else: name = name_
-        names[dir][name_] = j+1
-
+        dst, j = format_name(args.name_format, i, cur, dst_dirs[dir][0])
     except Exception as e:
         # this is unlikely to happen, but if it does, make sure other files get moved safely
         print(f"while moving '{cur}' to '{dst_dirs[dir][0]}', ")
@@ -429,8 +465,6 @@ for i, (cur, dir) in enumerate(result):
         print("please report this to the developer!")
         remaining.append(('FORMAT', i, j, cur, dir, repr(e)))
         continue
-
-    dst = dst_dirs[dir][0] / name
 
     if dst.exists():
         print(dst)

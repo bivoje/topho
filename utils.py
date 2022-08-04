@@ -107,7 +107,10 @@ class HandyInt:
     # "{n.p3.x2.d5}".format(n=HandyInt(3)) == '2'
     def __init__(self, integer):
         self.integer = integer
-    
+
+    def new(self, integer):
+        return HandyInt(integer)
+
     def __getattr__(self, key):
         try:
             val = int(key[1:])
@@ -123,13 +126,15 @@ class HandyInt:
         elif key[0] == 'm':
             ret = self.integer - val
         elif key[0] == 'x' or key[0] == 'X':
+            if val == 0:
+                raise ValueError(f"use constant value 0 instead '{key}'")
             ret = self.integer * val
         elif key[0] == 'r' or key[0] == 'l':
             ret = self.integer % val
         else:
             raise ValueError(f"unrecognized integer arithmetic attribute '{key[0]}'")
 
-        return HandyInt(ret)
+        return self.new(ret)
 
     def __str__(self):
         return str(self.integer)
@@ -138,24 +143,24 @@ class HandyInt:
         return format(self.integer, format_spec)
 
 class HermitDup(HandyInt):
-    def __init__(self, integer, orig):
+    def __init__(self, integer):
         super(HermitDup, self).__init__(integer)
-        self.orig = orig
 
-    # modifying & returnning self would remove this unpack-repack burden
-    # but might be problematic in other uses.
+    def new(self, integer):
+        return HermitDup(integer)
+
     def __getattr__(self, key):
-        ret = super(HermitDup, self).__getattr__(key)
-        return HermitDup(ret.integer, self.orig)
+        if key[0] == 'r' or key[0] == 'l':
+            raise ValueError(f"can't use modulo on dup in '{key}'")
+        return super(HermitDup, self).__getattr__(key)
 
     def __format__(self, format_spec):
+        if self.integer == 0: return ""
         ret = format_spec.split('/', 2)
         if len(ret) == 2:
-            if self.orig == 0: return ""
             prefix, suffix = ret
             spec = ''
         elif len(ret) == 3:
-            if self.orig == 0: return ""
             prefix, suffix, spec = ret
         else:
             prefix, suffix = '', ''

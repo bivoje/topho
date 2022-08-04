@@ -120,7 +120,7 @@ Minimallistic utility for manual image organizing
 
 positional arguments:
   source_dir            path of image directory to organize
-  target_dir            path of directory to store organized images (default: .)
+  target_dir            path of directory to store organized images, defaults to current directory (default: None)
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -147,7 +147,6 @@ NAMEF:
 NAMEF variables:
     index    :int  - enumeration, starting from 0
     name     :str  - original name of the file
-    srcdir   :str  - parent directory of the file, same as <source_dir>
     size     :int  - size of the file in bytes
     created  :time - file creation time
     modified :time - file modification time
@@ -169,8 +168,6 @@ NAMEF formatting:
       "{index.x3}" == '27'
     - .d<n> for integer division
       "{index.d2}" == '4'
-    - .r<n>, .l<n> for remainder (always positive)
-      "{index.l5}" == '4'
     - mixture of all
       "{index.p3.x2.4}" == '6'
     - with integer format_spec
@@ -207,10 +204,10 @@ NAMEF formatting:
     If enclosure specifier exists dup acts in hermit mode, expose itself
     (and enclosure) only if dup > 0.
     For example, if there are only 1 file created on 2022-08-02, the
-    formatstring "{created}{dup.x2.m1:==(/)/0^3}" simply yields '2022-08-02'.
-    But if there are 3 of them, they will be renamed as
-    '2022-08-02', '2022-08-02==(010)', '2022-08-02==(030)' in sorted order.
-    Note that hermit mode depends on 'dup' itself not 'dup.x2.m1'.
+    formatstring "{created}{dup.x2.m2:==(/)/0^3}" simply yields '2022-08-02'.
+    But if there are 4 of them, they will be renamed as (in sorted order)
+    '2022-08-02==(-20)', '2022-08-02', '2022-08-02==(020)' '2022-08-02==(040)'.
+    Note that hermit mode depends on result 'dup.x2.m2' not the original 'dup'.
     If format_spec is empty, you can omit trailing '/', like "{dup:(/)}"
 ```
 
@@ -244,7 +241,7 @@ TODO list
 [ ] support other viewer programs & passing-over options
 [ ] load from error log
 [ ] save in mid progress feature (in cases like out of disk space etc?)
-
+[ ] add message "SPACE to start", "'c' to commit" to start.png & end.png
 
 Images
 ------------------
