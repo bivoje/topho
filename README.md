@@ -111,9 +111,9 @@ After program finishes, all the files from `D:\Pictures\memes` are now moved int
 Considering yourself an advanced user, there are several options to be utilized.
 ```
 > topho.exe -h
-usage: Topho [-h] [--version] [--dry] [--maxw MAXW] [--maxh MAXH] [--name_format NAMEF]
-             [--test_names [TEST_NAMES ...]] [--logfile LOGFILE] [--mpv MPVPATH] [--frontq_min FQm] [--frontq_max FQM]
-             [--backq_min BQm] [--backq_max BQM]
+usage: Topho [-h] [--version] [--dry] [--keep] [--maxw MAXW] [--maxh MAXH]
+             [--name_format NAMEF] [--test_names [TEST_NAMES ...]] [--logfile LOGFILE] [--mpv MPVPATH]
+             [--frontq_min FQm] [--frontq_max FQM] [--backq_min BQm] [--backq_max BQM]
              source_dir [target_dir]
 
 Minimallistic utility for manual image organizing
@@ -149,6 +149,7 @@ NAMEF variables:
     index    :int  - enumeration, starting from 0
     name     :str  - original name of the file
     size     :int  - size of the file in bytes
+    hier     :slice- list of parent directories from source_dir, inclusive
     created  :time - file creation time
     modified :time - file modification time
     accessed :time - file access time
@@ -159,7 +160,7 @@ NAMEF formatting:
     which means "{index*2}" is cannot be done. So we provide some attribute
     extension for ease of handling variables.
 
-    For integer types, additional arithmetic attributes are provided as well
+    For integer type, additional arithmetic attributes are provided as well
     as basic integer formatting syntax. You can do (asssuming index=9)
     - .p<n>, .t<n> for addition
       "{index.p20}" == '29'
@@ -174,16 +175,33 @@ NAMEF formatting:
     - with integer format_spec
       "{index.p3.x2.4:+03}" == '+006'
 
-    For string types, start-end slicing attributes are provided along with other
-    basic string formatting syntax. You can do (assuming name=asdf)
-    - ._<n> for maxcap length, same as str[:n]
-      "{name._3}" == 'asd'
-    - ._<n>_<m> to take range [n, <m>), same as str[n:m]
+    For slice type, start-end slicing attributes are provided. format spec can be
+    preceded with a seperator as '<sep>!<spec>' which will be used to join slice elements.
+    If spereator is omitted, it defaults to '' or '\' for 'hier' variable.
+    <spec> is basic python formatter, applys element-wisely. Each formatted result
+    then joined by <sep>. string types are simliar to slice type but <spec> applys to
+    the whole string. You can do (assuming name=asdf)
+    - ._<n> for starting index, same as str[n:]
+      "{slice._2}" == 'df'
+    - .__<m> for ending index, same as str[:m]
+      "{slice.__3}" == 'asd'
+    - ._<n>_<m> to take range [n, m), same as str[n:m]
       "{name._1_3}" == 'sd'
     - indexing from behind, use 'm' prefix instead of '-' to indicate negative
       "{name._1_m1}" == 'sd'
     - complex mixture example
       "=={name._3:#^7}---" == '==##asd##---'
+
+    'hier' is slice variable consisting of directory names from source_dir to
+    the file. '' element is at the end to add trailing seperator.
+    Assume source_dir = 'images' and filepath is 'images\source\dir\y.png', then
+    hier == ['images', 'source', 'dir', ''] and name == y.png,
+    - simpy using with {name} to get filepath (from source_dir)
+      "{hier}{name}" == 'images\source\dir\y.png'
+    - use custome seperator with custom elem-wize formatting
+      "{hier:-!:_<5}{name}" == 'images-source-dir__-y.png'
+    - remove trailing seperator by slicing
+      "{hier._1_m1}_{name}" == 'source\dir_y.png'
 
     For time types, you can use strftime format in format_spec region.
     See https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
@@ -201,17 +219,24 @@ NAMEF formatting:
 
     'dup' type is similar to 'int' type, all arithmetic attbributes are
     provided but has extended format spec. Normal integer format spec
-    is may preceeded by enclosure specifier of format "<prefix>/<suffix>/".
+    is may preceeded by enclosure specifier of format "<prefix>!<suffix>!".
     If enclosure specifier exists dup acts in hermit mode, expose itself
     (and enclosure) only if dup > 0.
     For example, if there are only 1 file created on 2022-08-02, the
-    formatstring "{created}{dup.x2.m2:==(/)/0^3}" simply yields '2022-08-02'.
+    formatstring "{created}{dup.x2.m2:==(!)!0^3}" simply yields '2022-08-02'.
     But if there are 4 of them, they will be renamed as (in sorted order)
     '2022-08-02==(-20)', '2022-08-02', '2022-08-02==(020)' '2022-08-02==(040)'.
     Note that hermit mode depends on result 'dup.x2.m2' not the original 'dup'.
-    If format_spec is empty, you can omit trailing '/', like "{dup:(/)}"
+    If format_spec is empty, you can omit trailing '!', like "{dup:(!)}"
 ```
 
+#### Examples
+```
+> .\topho.exe images this/dir/right/here --name_format '{hier._m2:_!}{name}' --test_names small\1.png mid\4.png big\extra\space.jpg
+this\dir\right\here\small_1.png
+this\dir\right\here\mid_4.png
+this\dir\right\here\extra_space.jpg
+```
 
 Build
 ------------------

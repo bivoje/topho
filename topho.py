@@ -5,20 +5,11 @@ from utils import *
 import os
 import sys
 
-    # DEPRECATED
-    # little bit tricky since 'path' already contain parent directory information,
-    # yet the caller have to re-assemble the returned filename with parent dir.
-    # might be clear if format_name was given only the orig filename or returned
-    # the whole path.
-    # But to check for directory traversing injection, we have to return only the
-    # filename, while we'd like to utilize 'Path's stem & suffix feature (Path.name
-    # returns a string)
-# Since source_dir may contain '/' or '\', it is eliminated for now.
-# For recursive source_dir & deep target_dir generation support in the future,
-# directory traversing injection detection machanism may change.
+# source_dir must be prefix of path. (both Path object)
+# returns target path object
 format_name_lookup_cache = {}
 # FIXME what if target_dir not exist?
-def format_name(formstr, index, path, target_dir, exists=lambda p: p.exists()):
+def format_name(formstr, index, path, source_dir, target_dir, exists=lambda p: p.exists()):
     global format_name_lookup_cache
     if path.exists():
         size = HandyInt(os.path.getsize(path)),
@@ -35,10 +26,14 @@ def format_name(formstr, index, path, target_dir, exists=lambda p: p.exists()):
         modified = HandyTime(datetime(2013,6,5,21,54,57).astimezone())
         accessed = HandyTime(datetime(2054,6,8,4,13,26).astimezone())
 
+    # [:-1] to removing last '.'
+    parents = list(p.name for p in path.relative_to(source_dir.parent).parents)
+    hier = list(reversed(parents[:-1])) + ['']
+
     gen = lambda dup: target_dir / (formstr.format(
         index = HandyInt(index),
         name = HandyString(path.stem),
-        #srcdir = HandyString(str(path.parent)),
+        hier = HandySlice(hier, '\\'),
         size = size,
         created  = created,
         modified = modified,
@@ -131,19 +126,19 @@ def executable(s):
 # also, since '/', '\' can only come from format string literals, it is easy to check if there
 # is directory-change-injection
 def nameformat(s):
+    if '/' in s or '\\' in s: # if we verify there's no '/' or '\', we can be sure'
+        raise argparse.ArgumentTypeError("can't use '\\' or '/' in filenames")
     try:
         ret = s.format( # generate with random
             index = HandyInt(1),
             name = HandyString("Bapanada"),
-            #srcdir = HandyString(str(path.parent)),
+            hier = HandySlice(["this", "dir"]),
             size = 3012,
             created  = HandyTime(datetime(1970,1,3).astimezone()),
             modified = HandyTime(datetime(1970,1,3).astimezone()),
             accessed = HandyTime(datetime(1970,1,3).astimezone()),
             dup = HermitDup(1),
         )
-        if '/' in ret or '\\' in ret: # if we verify there's no '/' or '\', we can be sure'
-            raise argparse.ArgumentTypeError("can't use '\\' or '/' in filenames")
         return s
     # KeyError when accessing non-existing variable
     # AttributeError when accessing invalid attr of HandyTime
@@ -180,6 +175,7 @@ NAMEF variables:
     index    :int  - enumeration, starting from 0
     name     :str  - original name of the file
     size     :int  - size of the file in bytes
+    hier     :slice- list of parent directories from source_dir, inclusive
     created  :time - file creation time
     modified :time - file modification time
     accessed :time - file access time
@@ -190,7 +186,7 @@ NAMEF formatting:
     which means "{index*2}" is cannot be done. So we provide some attribute
     extension for ease of handling variables.
 
-    For integer types, additional arithmetic attributes are provided as well
+    For integer type, additional arithmetic attributes are provided as well
     as basic integer formatting syntax. You can do (asssuming index=9)
     - .p<n>, .t<n> for addition
       "{index.p20}" == '29'
@@ -205,16 +201,33 @@ NAMEF formatting:
     - with integer format_spec
       "{index.p3.x2.4:+03}" == '+006'
 
-    For string types, start-end slicing attributes are provided along with other
-    basic string formatting syntax. You can do (assuming name=asdf)
-    - ._<n> for maxcap length, same as str[:n]
-      "{name._3}" == 'asd'
-    - ._<n>_<m> to take range [n, <m>), same as str[n:m]
+    For slice type, start-end slicing attributes are provided. format spec can be
+    preceded with a seperator as '<sep>!<spec>' which will be used to join slice elements.
+    If spereator is omitted, it defaults to '' or '\\' for 'hier' variable.
+    <spec> is basic python formatter, applys element-wisely. Each formatted result
+    then joined by <sep>. string types are simliar to slice type but <spec> applys to
+    the whole string. You can do (assuming name=asdf)
+    - ._<n> for starting index, same as str[n:]
+      "{slice._2}" == 'df'
+    - .__<m> for ending index, same as str[:m]
+      "{slice.__3}" == 'asd'
+    - ._<n>_<m> to take range [n, m), same as str[n:m]
       "{name._1_3}" == 'sd'
     - indexing from behind, use 'm' prefix instead of '-' to indicate negative
       "{name._1_m1}" == 'sd'
     - complex mixture example
       "=={name._3:#^7}---" == '==##asd##---'
+
+    'hier' is slice variable consisting of directory names from source_dir to
+    the file. '' element is at the end to add trailing seperator.
+    Assume source_dir = 'images' and filepath is 'images\source\dir\y.png', then
+    hier == ['images', 'source', 'dir', ''] and name == y.png,
+    - simpy using with {name} to get filepath (from source_dir)
+      "{hier}{name}" == 'images\source\dir\y.png'
+    - use custome seperator with custom elem-wize formatting
+      "{hier:-!:_<5}{name}" == 'images-source-dir__-y.png'
+    - remove trailing seperator by slicing
+      "{hier._1_m1}_{name}" == 'source\dir_y.png'
 
     For time types, you can use strftime format in format_spec region.
     See https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
@@ -232,15 +245,15 @@ NAMEF formatting:
 
     'dup' type is similar to 'int' type, all arithmetic attbributes are
     provided but has extended format spec. Normal integer format spec
-    is may preceeded by enclosure specifier of format "<prefix>/<suffix>/".
+    is may preceeded by enclosure specifier of format "<prefix>!<suffix>!".
     If enclosure specifier exists dup acts in hermit mode, expose itself
     (and enclosure) only if dup > 0.
     For example, if there are only 1 file created on 2022-08-02, the
-    formatstring "{created}{dup.x2.m2:==(/)/0^3}" simply yields '2022-08-02'.
+    formatstring "{created}{dup.x2.m2:==(!)!0^3}" simply yields '2022-08-02'.
     But if there are 4 of them, they will be renamed as (in sorted order)
     '2022-08-02==(-20)', '2022-08-02', '2022-08-02==(020)' '2022-08-02==(040)'.
     Note that hermit mode depends on result 'dup.x2.m2' not the original 'dup'.
-    If format_spec is empty, you can omit trailing '/', like "{dup:(/)}"
+    If format_spec is empty, you can omit trailing '!', like "{dup:(!)}"
 ''')
 
 parser.add_argument('source_dir', type=existing_directory,
@@ -276,7 +289,7 @@ parser.add_argument('--backq_min',  type=positive_int, metavar='BQm', default=3,
 parser.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
     help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
 args = parser.parse_args()
-#args = parser.parse_args("images this/dir/right/here --copy".split())
+#args = parser.parse_args("images this/dir/right/here --copy --name_format '{hier._1}{name}' --test_names small\1.png mid\4.png big\extra\space.jpg".split())
 
 # FIXME not using source_dir while mandatory arg?
 if args.test_names:
@@ -289,7 +302,8 @@ if args.test_names:
         exists = lambda p: p.exists() or p in virtual_files
 
     for i, test_name in enumerate(args.test_names):
-        ret, _ = format_name(args.name_format, i, test_name, outdir, exists=exists)
+        test_path = args.source_dir / test_name
+        ret, _ = format_name(args.name_format, i, test_path, args.source_dir, outdir, exists=exists)
         virtual_files.add(ret)
         print(ret)
 
@@ -316,7 +330,7 @@ end_img     = load_tk_image(SCRIPTDIR/'end.png', args.maxw, args.maxh)
 
 # %%
 
-files = list((path,0) for path in args.source_dir.iterdir() if not path.is_dir())
+files = list((path,0) for path in args.source_dir.glob('**/*') if not path.is_dir())
 
 front_queue = ImageLoadingQueue(files, args.frontq_min, args.frontq_max, args.maxw, args.maxh)
 back_queue  = ImageLoadingQueue([], args.backq_min, args.backq_max, args.maxw, args.maxh)
@@ -465,17 +479,17 @@ for i, (cur, dir) in enumerate(result):
     if dir == 0: continue
 
     if not cur.exists():
-        remaining.append(('MISSING', i, 0, cur, dir, ''))
+        remaining.append(('MISSING', i, '-', cur, dir, ''))
         continue
 
     try:
-        dst, j = format_name(args.name_format, i, cur, dst_dirs[dir][0])
+        dst, j = format_name(args.name_format, i, cur, args.source_dir, dst_dirs[dir][0])
     except Exception as e:
         # this is unlikely to happen, but if it does, make sure other files get moved safely
         print(f"while moving '{cur}' to '{dst_dirs[dir][0]}', ")
         print(e)
         print("please report this to the developer!")
-        remaining.append(('FORMAT', i, j, cur, dir, repr(e)))
+        remaining.append(('FORMAT', i, '-', cur, dir, repr(e)))
         continue
 
     if dst.exists():

@@ -68,13 +68,21 @@ class HandyTime:
     def get_utc(self):
         return HandyTime(self.datetime.astimezone(timezone.utc))
 
-class HandyString:
-    # "{s._1_3}---".format(s=HandyString('asdf')) == 'sd'
-    # "=={s._3:#^7}---".format(s=HandyString('asdf')) == '==##asd##---'
-    def __init__(self, string):
-        assert isinstance(string, str)
-        self.string = string
 
+class HandySlice:
+    def __init__(self, slc, sep=''):
+        self.slc = slc
+        self.sep = sep
+
+    def new(self, slc):
+        return HandySlice(slc)
+
+    def __str__(self):
+        return str(self.slc)
+
+    def __repr__(self):
+        return repr(self.slc)
+    
     def __getattr__(self, key):
         def intp(s):
             try:
@@ -82,26 +90,45 @@ class HandyString:
             except:
                 raise ValueError("could not parse '{s}' as an index in {key}")
 
-        if key[0] == '_':
+        if key[0:2] == '__':
+            s, e = None, intp(key[1:])
+        elif key[0] == '_':
             if '_' not in key[1:]:
-                s, e = 0, intp(key[1:])
+                s, e = intp(key[1:]), None
             else:
                 se = key[1:].split('_')
                 if len(se) != 2:
                     raise ValueError(f"invalid slicing attribute format '{key}'")
                 s, e = intp(se[0]), intp(se[1])
-            return HandyString(self.string[s:e])
         else:
-            raise ValueError(f"string slicing attribute starts with '_' but found '{key}'")
+            raise ValueError(f"slicing attribute starts with '_' but found '{key}'")
 
-    def __str__(self):
-        return self.string
+        return self.new(self.slc[s:e])
 
-    def __repr__(self):
-        return repr(self.string)
-    
     def __format__(self, format_spec):
-        return format(self.string, format_spec)
+        ret = format_spec.split('!', 1)
+        if len(ret) == 2:
+            sep, spec = ret
+        else:
+            sep, spec = self.sep, format_spec
+
+        return sep.join(format(x, spec) for x in self.slc)
+
+
+class HandyString(HandySlice):
+    # "{s._1_3}---".format(s=HandyString('asdf')) == 'sd'
+    # "=={s._3:#^7}---".format(s=HandyString('asdf')) == '==##asd##---'
+    def __init__(self, slc):
+        assert isinstance(slc, str)
+        super(HandyString, self).__init__(slc)
+
+    def new(self, string):
+        return HandyString(string)
+    
+    # bypasses parent's formatting
+    def __format__(self, format_spec):
+        return format(self.slc, format_spec)
+
 
 class HandyInt:
     # "{n.p3.x2.d5}".format(n=HandyInt(3)) == '2'
@@ -142,6 +169,7 @@ class HandyInt:
     def __format__(self, format_spec):
         return format(self.integer, format_spec)
 
+
 class HermitDup(HandyInt):
     def __init__(self, integer):
         super(HermitDup, self).__init__(integer)
@@ -156,7 +184,7 @@ class HermitDup(HandyInt):
 
     def __format__(self, format_spec):
         if self.integer == 0: return ""
-        ret = format_spec.split('/', 2)
+        ret = format_spec.split('!', 2)
         if len(ret) == 2:
             prefix, suffix = ret
             spec = ''
@@ -166,6 +194,7 @@ class HermitDup(HandyInt):
             prefix, suffix = '', ''
             spec = format_spec
         return prefix + super(HermitDup, self).__format__(spec) + suffix
+
 
 # %%
 from collections import deque
