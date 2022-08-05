@@ -257,10 +257,11 @@ TODO list
 ------------------
 [v] resize images to fit into screen
 [v] custom rename rules
-[ ] source directory recursive, target sub-directory???
+[v] source directory recursive, target sub-directory???
 [ ] safe & powerful custom rename rules (string->int operation, index+size etc)
-[ ] delete during organizing
-[ ] trashcan (can contain duplicated names.. & keep sources; restore)
+[v] delete during organizing
+[v] trashcan (can contain duplicated names.. & keep sources)
+[ ] restore from trashcan
 [v] cancel and quit feature
 [v] handle when dst already exists
 [v] handle when can't load file
@@ -271,6 +272,7 @@ TODO list
 [ ] load from error log
 [ ] save in mid progress feature (in cases like out of disk space etc?)
 [ ] add message "SPACE to start", "'c' to commit" to start.png & end.png
+[ ] sophisticated keep option (keep archive, move temp files)
 
 Images
 ------------------

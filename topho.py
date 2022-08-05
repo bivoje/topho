@@ -67,7 +67,7 @@ import shutil
 import subprocess
 from ctypes import windll
 
-VERSION = "1.1.0"
+VERSION = "2.0.0"
 SCRIPTDIR = Path(__file__).parent
 START_TIME = HandyTime(datetime.now())
 
