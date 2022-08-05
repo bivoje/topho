@@ -75,7 +75,7 @@ class HandySlice:
         self.sep = sep
 
     def new(self, slc):
-        return HandySlice(slc)
+        return HandySlice(slc, sep=self.sep)
 
     def __str__(self):
         return str(self.slc)
@@ -183,12 +183,13 @@ class HermitDup(HandyInt):
         return super(HermitDup, self).__getattr__(key)
 
     def __format__(self, format_spec):
-        if self.integer == 0: return ""
         ret = format_spec.split('!', 2)
         if len(ret) == 2:
+            if self.integer == 0: return ""
             prefix, suffix = ret
             spec = ''
         elif len(ret) == 3:
+            if self.integer == 0: return ""
             prefix, suffix, spec = ret
         else:
             prefix, suffix = '', ''
