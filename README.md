@@ -120,7 +120,7 @@ Minimallistic utility for manual image organizing
 
 positional arguments:
   source_dir            path of image directory to organize
-  target_dir            path of directory to store organized images, defaults to current directory (default: None)
+  target_dir            path of directory to store organized images, defaults to current directory, created if not exists (default: None)
 
 optional arguments:
   -h, --help            show this help message and exit

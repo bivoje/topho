@@ -245,8 +245,8 @@ NAMEF formatting:
 
 parser.add_argument('source_dir', type=existing_directory,
     help='path of image directory to organize')
-parser.add_argument('target_dir', type=existing_directory, default=None, nargs='?',
-    help='path of directory to store organized images, defaults to current directory')
+parser.add_argument('target_dir', type=Path, default=None, nargs='?',
+    help='path of directory to store organized images, defaults to current directory, created if not exists')
     #nargs='?' makes this positional argument optional https://stackoverflow.com/a/4480202
 parser.add_argument('--version', '-v', action='version', version=f'%(prog)s {VERSION}')
 parser.add_argument('--dry', '-n', dest='dry', action='store_true',
@@ -276,7 +276,7 @@ parser.add_argument('--backq_min',  type=positive_int, metavar='BQm', default=3,
 parser.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
     help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
 args = parser.parse_args()
-#args = parser.parse_args("images --dry".split())
+#args = parser.parse_args("images this/dir/right/here --copy".split())
 
 # FIXME not using source_dir while mandatory arg?
 if args.test_names:
@@ -439,6 +439,12 @@ if not commit:
     print("no commit, nothing happed!")
     sys.exit()
 
+target_dir_created_root = args.target_dir
+while target_dir_created_root != Path('.') and not target_dir_created_root.parent.exists():
+    target_dir_created_root = target_dir_created_root.parent
+
+args.target_dir.mkdir(parents=True, exist_ok=True)
+
 dst_dirs = [] # :: [ (path, created_by_program?) ]
 
 for i in range(10):
@@ -520,3 +526,19 @@ for dirpath, created in dst_dirs:
         # error occures when dir is nonempty
         # we only want to remove unneccessary empty dirs that we created
         pass
+
+    try:
+        dirpath.rmdir()
+    except OSError:
+        # error occures when dir is nonempty
+        # we only want to remove unneccessary empty dirs that we created
+        pass
+
+target_dir = args.target_dir
+while target_dir_created_root != target_dir:
+    try: target_dir.rmdir()
+    except OSError: break
+    target_dir = target_dir.parent
+
+try: target_dir.rmdir()
+except OSError: pass
