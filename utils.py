@@ -89,7 +89,7 @@ class HandySlice:
 
     def __repr__(self):
         return repr(self.slc)
-    
+
     def __getattr__(self, key):
         def intp(s):
             try:
@@ -131,7 +131,7 @@ class HandyString(HandySlice):
 
     def new(self, string):
         return HandyString(string)
-    
+
     # bypasses parent's formatting
     def __format__(self, format_spec):
         return format(self.slc, format_spec)
@@ -275,7 +275,7 @@ class ImageLoadingQueue:
     def get(self, block=False, pop=True):
         self.print(f"get {block} {pop}")
         if self.is_empty(): return None
-        
+
         acquired = self.loaded.acquire(blocking=block) # decrease
         if not acquired: return False
 
@@ -324,7 +324,7 @@ class ImageLoadingQueue:
                     break # no more data to load
                 else: self.empty = False # this is defensive coding. not actually needed
                 self.empty_lock.release()
-            
+
             while len(self.queue) > self.max and not self.stop:
                 self.free_one()
 

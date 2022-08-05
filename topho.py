@@ -477,6 +477,7 @@ def key_press(e):
 
     elif last_key == ' ':
         #print("skip")
+        ret = front_queue.get(block=False)
         if ret: # no more data, do nothing
             img, orig_path, _ = ret
             back_queue.put((img, orig_path, None))
@@ -565,7 +566,7 @@ for i, (cur, dir) in enumerate(result):
         if args.keep:
             if not dst.parent.exists():
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                sleep(0.001) # wait for filesystem update
+                sleep(0.01) # wait for filesystem update
             shutil.copy(cur, dst)
         else:
             cur.replace(dst)
