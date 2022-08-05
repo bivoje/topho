@@ -8,9 +8,9 @@ import sys
 # source_dir must be prefix of path. (both Path object)
 # returns target path object
 format_name_lookup_cache = {}
-# FIXME what if target_dir not exist?
 def format_name(formstr, index, path, source_dir, target_dir, exists=lambda p: p.exists()):
     global format_name_lookup_cache
+    assert target_dir.exists() and target_dir.is_dir()
     if path.exists():
         size = HandyInt(os.path.getsize(path)),
         # note that windows' file explorer's 'date' has more complex method of determination
@@ -48,10 +48,8 @@ def format_name(formstr, index, path, source_dir, target_dir, exists=lambda p: p
         return newpath0, 0
 
     if newpath0 == gen(1): # considering 'dup' is not used in formatstr.
-        # FIXME this assumption might be wrong, add option to bypass (loop increase dup) it??
         # just return it (probably filename duplication error occures)
-        return newpath0, 0
-        # FIXME what about format_name_lookup_cache?
+        return newpath0, 1
 
     # use 1 as default as there already is one file with the name.
     j = format_name_lookup_cache.get(str(newpath0), 1)
@@ -89,6 +87,19 @@ def existing_directory(s):
     except:
         raise argparse.ArgumentTypeError(f"non existing directory: '{s}'")
 
+def existing_directory_or_archive(s):
+    path = Path(s)
+    if not path.exists():
+        raise argparse.ArgumentTypeError(f"non existing source: '{s}'")
+
+    if path.is_dir():
+        return ('dir', path)
+
+    if path.suffix[1:] in ARXIV_EXTS and os.access(path, os.R_OK):
+        return ('arx', path)
+
+    raise argparse.ArgumentTypeError(f"source is neither directory or reable archive file: '{s}'")
+
 def writable_file(s):
     if s == '-': return '-'
     try:
@@ -106,10 +117,10 @@ def executable(s):
         #assert os.access(path, os.X_OK); shutil.which already checked X_OK
         # but still non-executable files could have X_OK.. for some reason :P
 
-        proc = subprocess.Popen([str(path), '-V'], stdout=subprocess.PIPE)
-        stdout, _ = proc.communicate(timeout=1)
-        proc.kill()
-        assert stdout.startswith(b'mpv ')
+        # proc = subprocess.Popen([str(path), '-V'], stdout=subprocess.PIPE)
+        # stdout, _ = proc.communicate(timeout=1)
+        # proc.kill()
+        # assert stdout.startswith(b'mpv ')
 
         return path
     except:
@@ -256,8 +267,8 @@ NAMEF formatting:
     If format_spec is empty, you can omit trailing '!', like "{dup:(!)}"
 ''')
 
-parser.add_argument('source_dir', type=existing_directory,
-    help='path of image directory to organize')
+parser.add_argument('source', type=existing_directory_or_archive,
+    help='path of image directory to organize or an archive file')
 parser.add_argument('target_dir', type=Path, default=None, nargs='?',
     help='path of directory to store organized images, defaults to current directory, created if not exists')
     #nargs='?' makes this positional argument optional https://stackoverflow.com/a/4480202
@@ -280,6 +291,8 @@ parser.add_argument('--mpv', type=executable, metavar='MPVPATH', default="mpv.ex
     help='path to invoke mpv player executable')
     # '--mpv mpv' resolved to 'mpv.COM' which prints some info to stdout by default
     # while 'mpv.exe' doesn't.
+parser.add_argument('--arx', type=executable, metavar='ARXPATH', default="Bandizip.exe",
+    help='path to invoke un-archive files')
 parser.add_argument('--frontq_min', type=positive_int, metavar='FQm', default=3,
     help='minimum # of images pre-loaded, increase if forward loading is too slow')
 parser.add_argument('--frontq_max', type=positive_int, metavar='FQM', default=10,
@@ -289,21 +302,27 @@ parser.add_argument('--backq_min',  type=positive_int, metavar='BQm', default=3,
 parser.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
     help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
 args = parser.parse_args()
-#args = parser.parse_args("images this/dir/right/here --copy --name_format '{hier._1}{name}' --test_names small\1.png mid\4.png big\extra\space.jpg".split())
+#args = parser.parse_args(["images.zip", "this/dir", "--name_format", "{hier._1}{name}"])
 
-# FIXME not using source_dir while mandatory arg?
+# %%
+
+import tempfile
+
 if args.test_names:
+    source_dir = args.source[1]
     virtual_files = set()
-    if args.target_dir is None:
+    if args.target_dir is None or not args.target_dir.exists():
         outdir = Path('.')
         exists = lambda p: p in virtual_files
     else:
+        if not args.target_dir.is_dir():
+            print(f"target_dir '{args.target_dir}' is not a directory")
         outdir = args.target_dir
         exists = lambda p: p.exists() or p in virtual_files
 
     for i, test_name in enumerate(args.test_names):
-        test_path = args.source_dir / test_name
-        ret, _ = format_name(args.name_format, i, test_path, args.source_dir, outdir, exists=exists)
+        test_path = source_dir / test_name
+        ret, _ = format_name(args.name_format, i, test_path, source_dir, outdir, exists=exists)
         virtual_files.add(ret)
         print(ret)
 
@@ -311,6 +330,15 @@ if args.test_names:
 
 if args.target_dir is None:
     args.target_dir = Path('.')
+
+if args.source[0] == 'dir':
+    temp_dir = None
+    source_dir = args.source[1]
+else:
+    temp_dir = Path(tempfile.mkdtemp(prefix=str(args.source[1]), dir='.'))
+    arx_proc = subprocess.Popen([str(args.arx), 'x', '-target:name', args.source[1], str(temp_dir)])
+    source_dir = temp_dir / args.source[1].stem
+
 
 # %%
 from tkinter import *
@@ -329,16 +357,25 @@ end_img     = load_tk_image(SCRIPTDIR/'end.png', args.maxw, args.maxh)
 
 
 # %%
+if temp_dir is not None:
+    arx_proc.wait()
 
 KNOWN_EXTS = VIDEO_EXTS | IMAGE_EXTS
-files = list(
-    (path,0)
+supported_files = list(
+    (path, None)
     for path
-    in args.source_dir.glob('**/*')
+    in source_dir.glob('**/*')
     if not path.is_dir() and path.suffix[1:] in KNOWN_EXTS
 )
 
-front_queue = ImageLoadingQueue(files, args.frontq_min, args.frontq_max, args.maxw, args.maxh)
+ignored_files = list(
+    path
+    for path
+    in source_dir.glob('**/*')
+    if not path.is_dir() and not path.suffix[1:] in KNOWN_EXTS
+)
+
+front_queue = ImageLoadingQueue(supported_files, args.frontq_min, args.frontq_max, args.maxw, args.maxh)
 back_queue  = ImageLoadingQueue([], args.backq_min, args.backq_max, args.maxw, args.maxh)
 
 front_queue.run()
@@ -367,7 +404,7 @@ def show_current(start=False):
             title = "LOADING"
         else:
             img = ret[0]
-            title = str(ret[2]) + " " + ret[1].name
+            title = ('-' if ret[2] is None else str(ret[2])) + " " + ret[1].name
 
     if img is None: # unrecognized type
         img = unrecog_img
@@ -431,11 +468,18 @@ def key_press(e):
             front_queue.put(ret)
             show_current()
 
-    elif last_key == 'U' or last_key == ' ':
+    elif last_key == 'U':
         #print("redo")
         ret = front_queue.get(block=False)
         if ret: # no more data, do nothing
             back_queue.put(ret)
+        show_current()
+
+    elif last_key == ' ':
+        #print("skip")
+        if ret: # no more data, do nothing
+            img, orig_path, _ = ret
+            back_queue.put((img, orig_path, None))
         show_current()
 
 def key_release(e):
@@ -455,8 +499,12 @@ result.reverse()
 
 
 # %%
+from time import sleep
+
 if not commit:
     print("no commit, nothing happed!")
+    if temp_dir is not None:
+        shutil.rmtree(temp_dir)
     sys.exit()
 
 target_dir_created_root = args.target_dir
@@ -480,16 +528,23 @@ for i in range(10):
 
 # files couldn't be moved
 remaining = [] # :: [(reason, idx, dup, path, dir, note)]
+skipped = []
 
+# FIXME i keeps increasing for skippedd, trashcaned, remaining files
 for i, (cur, dir) in enumerate(result):
-    if dir == 0: continue
-
     if not cur.exists():
         remaining.append(('MISSING', i, '-', cur, dir, ''))
         continue
 
+    if dir is None: # skipped files
+        skipped.append(dir)
+        continue
+
     try:
-        dst, j = format_name(args.name_format, i, cur, args.source_dir, dst_dirs[dir][0])
+        if dir == 0: # this is a trashcan
+            dst, j = format_name("{modified}[-[{hier:]-]!}{name}_{dup}", i, cur, source_dir, dst_dirs[0][0])
+        else:
+            dst, j = format_name(args.name_format, i, cur, source_dir, dst_dirs[dir][0])
     except Exception as e:
         # this is unlikely to happen, but if it does, make sure other files get moved safely
         print(f"while moving '{cur}' to '{dst_dirs[dir][0]}', ")
@@ -508,16 +563,20 @@ for i, (cur, dir) in enumerate(result):
 
     try:
         if args.keep:
+            if not dst.parent.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                sleep(0.001) # wait for filesystem update
             shutil.copy(cur, dst)
         else:
             cur.replace(dst)
+            # FIXME if target subdir not exist?
 
     except OSError as e:
         remaining.append(('OS', i, j, cur, dir, repr(e)))
 
 def write_remainings(f):
     f.write(f"#Topho {VERSION} {START_TIME:iso} {'copy' if args.keep else 'move'}")
-    f.write(f"#{args.source_dir.absolute()}\n")
+    f.write(f"#{args.source[1].absolute()}\n")
     f.write(f"#{args.target_dir.absolute()}\n")
     f.write(f"#{args.name_format}\n")
     f.write(f"#REASON\tINDEX\tDUP\tSOURCE\tDECISION\n")
@@ -538,6 +597,7 @@ if remaining:
 else:
     print(f"All {len(result)} files have been {'copied' if args.keep else 'moved'} properly.")
 
+# remove dst_dir if possible
 for dirpath, created in dst_dirs:
     if not created: continue
     try:
@@ -554,6 +614,7 @@ for dirpath, created in dst_dirs:
         # we only want to remove unneccessary empty dirs that we created
         pass
 
+# remove created target_dir parents if possible
 target_dir = args.target_dir
 while target_dir_created_root != target_dir:
     try: target_dir.rmdir()
@@ -562,3 +623,19 @@ while target_dir_created_root != target_dir:
 
 try: target_dir.rmdir()
 except OSError: pass
+
+# try removing source_dir if possible
+# FIXME does not work if sub directory exists despite empty
+# try: source_dir.rmdir()
+# except OSError: pass
+
+# remove un-archived files and possibly source
+if temp_dir is not None:
+    if skipped or remaining or ignored_files:
+        print(f"{len(skipped) + len(remaining) + len(ignored_files)} files are still in temp dir, keeping {source_dir}")
+    else:
+        shutil.rmtree(temp_dir)
+        pass
+
+    if not args.keep:
+        args.source[1].unlink()

@@ -90,10 +90,11 @@ Press `SPACE` to start. From now on, each image of the folder will be displayed 
 - `ESC`: quit, without commit. all files will be left untouched. (`q` is not mapped to avoid misusing with `mpv`)
 - `c`: quit, commit moving files as specified. unspecified files will be left untouched.
 - `r`: reload the image. you can re-open `mpv` using this.
-- `0`: skip this image. don't move this one.
+- `SPACE`: skip this image. don't move this one.
+- `0`: send image to folder `0`, a special directory acts like trash can. has custom naming rule.
 - `1` ~ `9`: send the image to folder `i`. (not actually sent, all the file operations are executed when everything is done)
 - `u`: undo sending files. previous decision is not forgetten and can be revoked by `U`.
-- `U`, `SPACE`: redo sending files. if not previously decided, sent to `0` by default.
+- `U`: redo sending files. if not previously decided, sent to `0` by default.
 
 #### use case
 Suppose you want to organize images in `D:\Pictures\memes` directory, into `C:\users\John\Desktop\memes\0~9`.
@@ -112,14 +113,15 @@ Considering yourself an advanced user, there are several options to be utilized.
 ```
 > topho.exe -h
 usage: Topho [-h] [--version] [--dry] [--keep] [--maxw MAXW] [--maxh MAXH]
-             [--name_format NAMEF] [--test_names [TEST_NAMES ...]] [--logfile LOGFILE] [--mpv MPVPATH]
+             [--name_format NAMEF] [--test_names [TEST_NAMES ...]]
+             [--logfile LOGFILE] [--mpv MPVPATH] [--arx ARXPATH]
              [--frontq_min FQm] [--frontq_max FQM] [--backq_min BQm] [--backq_max BQM]
-             source_dir [target_dir]
+             source [target_dir]
 
 Minimallistic utility for manual image organizing
 
 positional arguments:
-  source_dir            path of image directory to organize
+  source                path of image directory to organize or an archive file
   target_dir            path of directory to store organized images, defaults to current directory, created if not exists (default: None)
 
 optional arguments:
@@ -134,6 +136,7 @@ optional arguments:
                         if provided, apply name_format on this filename, print then exits (default: None)
   --logfile LOGFILE     path to log file where unmoved file list will be written (default: topholog.txt)
   --mpv MPVPATH         path to invoke mpv player executable (default: mpv.exe)
+  --arx ARXPATH         path to invoke un-archive files (default: Bandizip.exe)
   --frontq_min FQm      minimum # of images pre-loaded, increase if forward loading is too slow (default: 3)
   --frontq_max FQM      maximum # of images kept loaded when un-doing, increase if you frequently undo & redo (default: 10)
   --backq_min BQm       minimum # of images loaded for un-doing, increase if backward loading is too slow (default: 3)
