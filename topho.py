@@ -330,7 +330,13 @@ end_img     = load_tk_image(SCRIPTDIR/'end.png', args.maxw, args.maxh)
 
 # %%
 
-files = list((path,0) for path in args.source_dir.glob('**/*') if not path.is_dir())
+KNOWN_EXTS = VIDEO_EXTS | IMAGE_EXTS
+files = list(
+    (path,0)
+    for path
+    in args.source_dir.glob('**/*')
+    if not path.is_dir() and path.suffix[1:] in KNOWN_EXTS
+)
 
 front_queue = ImageLoadingQueue(files, args.frontq_min, args.frontq_max, args.maxw, args.maxh)
 back_queue  = ImageLoadingQueue([], args.backq_min, args.backq_max, args.maxw, args.maxh)
