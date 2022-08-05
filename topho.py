@@ -22,6 +22,10 @@ def format_name(formstr, index, path, target_dir, exists=lambda p: p.exists()):
     global format_name_lookup_cache
     if path.exists():
         size = HandyInt(os.path.getsize(path)),
+        # note that windows' file explorer's 'date' has more complex method of determination
+        # if photo has no taken-time info, it usually is modified date (not created)
+        # mod date is kept unchanged when copying & moving (to other drive)
+        # https://superuser.com/a/1674290
         created  = HandyTime(datetime.fromtimestamp(os.path.getctime(path)).astimezone())
         modified = HandyTime(datetime.fromtimestamp(os.path.getmtime(path)).astimezone())
         accessed = HandyTime(datetime.fromtimestamp(os.path.getatime(path)).astimezone())
@@ -247,6 +251,8 @@ parser.add_argument('target_dir', type=existing_directory, default=None, nargs='
 parser.add_argument('--version', '-v', action='version', version=f'%(prog)s {VERSION}')
 parser.add_argument('--dry', '-n', dest='dry', action='store_true',
     help="don't actually move files, only pretend organizing")
+parser.add_argument('--keep', '--copy', dest='keep', action='store_true',
+    help="keep the original files (copy, not move)")
 parser.add_argument('--maxw', type=positive_int, default=int(windll.user32.GetSystemMetrics(0)*0.8),
     help='maximum width of image, defaults to screen width * 0.8')
 parser.add_argument('--maxh', type=positive_int, default=int(windll.user32.GetSystemMetrics(1)*0.8),
@@ -467,21 +473,24 @@ for i, (cur, dir) in enumerate(result):
         continue
 
     if dst.exists():
-        print(dst)
         remaining.append(('DUP', i, j, cur, dir, ''))
         continue
 
     if args.dry:
-        print("moving " + str(cur) + " to " + str(dst) + "!")
+        print(("copying " if args.keep else "moving ") + str(cur) + " to " + str(dst) + "!")
         continue
 
     try:
-        cur.replace(dst)
+        if args.keep:
+            shutil.copy(cur, dst)
+        else:
+            cur.replace(dst)
+
     except OSError as e:
         remaining.append(('OS', i, j, cur, dir, repr(e)))
 
 def write_remainings(f):
-    f.write(f"#Topho {VERSION} {START_TIME:iso}")
+    f.write(f"#Topho {VERSION} {START_TIME:iso} {'copy' if args.keep else 'move'}")
     f.write(f"#{args.source_dir.absolute()}\n")
     f.write(f"#{args.target_dir.absolute()}\n")
     f.write(f"#{args.name_format}\n")
@@ -490,7 +499,7 @@ def write_remainings(f):
         f.write(f"{reason}\t{idx}\t{dup}\t{path}\t{dir}\t{note}\n")
 
 if remaining:
-    print(f"{len(remaining)} / {len(result)} files could not be moved, detailed reasons are recorded.")
+    print(f"{len(remaining)} / {len(result)} files could not be {'copied' if args.keep else 'moved'}, detailed reasons are recorded.")
     if args.logfile == '-':
         write_remainings(sys.stdout)
     else:
@@ -501,7 +510,7 @@ if remaining:
             print("couldn't open the logfile")
             write_remainings(sys.stdout)
 else:
-    print(f"All {len(result)} files have been moved properly.")
+    print(f"All {len(result)} files have been {'copied' if args.keep else 'moved'} properly.")
 
 for dirpath, created in dst_dirs:
     if not created: continue

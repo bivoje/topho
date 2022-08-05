@@ -126,6 +126,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --version, -v         show program's version number and exit
   --dry, -n             don't actually move files, only pretend organizing (default: False)
+  --keep, --copy        keep the original files (copy, not move) (default: False)
   --maxw MAXW           maximum width of image, defaults to screen width * 0.8 (default: 1536)
   --maxh MAXH           maximum height of image, defaults to screen height * 0.8 (default: 864)
   --name_format NAMEF   python style formatstring for moved file names, see <NAMEF> section (default: {name})
