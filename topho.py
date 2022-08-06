@@ -41,6 +41,16 @@ def existing_directory_or_archive(s):
 
     raise argparse.ArgumentTypeError(f"source is neither directory or reable archive file: '{s}'")
 
+def existing_readable_file(s):
+    if s == '-': return '-'
+    try:
+        path = Path(s)
+        assert not path.is_dir()
+        assert path.exists() and os.access(s, os.R_OK)
+        return path
+    except:
+        raise argparse.ArgumentTypeError(f"not a readable file: '{s}'")
+
 def writable_file(s):
     if s == '-': return '-'
     try:
@@ -187,9 +197,9 @@ NAMEF formatting:
     - default formatting shows iso-8601 date
       "{created}" == '2022-08-02'
     - by specifying 'iso' as format you get full iso-8601 representation
-      "{created:iso}" == '2022-08-02T07:23:45+0900'
+      "{created:iso}" == '2022-08-02T07-23-45+0900'
     - accessing 'utc' attribute gives datetime in UTC
-      "{created.utc:iso}" == '2022-08-01T22:23:45+0000'
+      "{created.utc:iso}" == '2022-08-01T22-23-45+0000'
     - all attributes of python datatime struct supported
       "{created.day:03}" == '002'
     - strftime style formatting
@@ -236,6 +246,8 @@ parser.add_argument('--arx', type=executable, metavar='ARXPATH', default="Bandiz
     help='path to invoke un-archive files')
 parser.add_argument("--filesystem_latency", type=float, metavar='FSLAT', default=0.01,
     help='time to wait after filesystem operation like mkdir')
+parser.add_argument('--retry', type=existing_readable_file, metavar='LOGFILE',
+    help='')
 parser.add_argument('--frontq_min', type=positive_int, metavar='FQm', default=3,
     help='minimum # of images pre-loaded, increase if forward loading is too slow')
 parser.add_argument('--frontq_max', type=positive_int, metavar='FQM', default=10,
@@ -246,6 +258,7 @@ parser.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
     help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
 args = parser.parse_args()
 #args = parser.parse_args(["images.zip", "this/dir", "--name_format", "{hier._1}{name}"])
+
 
 # %%
 
@@ -271,6 +284,36 @@ if args.test_names:
 
     sys.exit(0)
 
+
+# %%
+if args.retry:
+    if args.retry == '-':
+        remaining, cwd, args_ = load_remainings(sys.stdin)
+    else:
+        with open(args.retry, "rt") as f:
+            remaining, cwd, args_ = load_remainings(f)
+    
+    args_.dry = args.dry
+    args_.logfile = args.logfile.absolute()
+    args_.filesystem_latency = args.filesystem_latency
+
+    os.chdir(cwd)
+
+    result = []
+    for reason, idx, dup, path, dir, note in remaining:
+        result.append((idx, (path, dir))) # dup, reason, note ignored.
+
+    source_dir = args_.source
+
+    # FIXME temp_dir=None (consider source_dir is not temporary) 
+    # then ignored_files=[] is never used anyway and source_dir will not be removed
+    # this is error-prone interface, need to change later
+    organize(result, args_, source_dir, None, [], START_TIME)
+
+    sys.exit(0)
+
+
+# %%
 if args.target_dir is None:
     args.target_dir = Path('.')
 
@@ -286,7 +329,6 @@ else:
 # %%
 view = OrganHelperView(args.maxw, args.maxh, str(args.mpv), SCRIPTDIR)
 
-# %%
 if temp_dir is not None:
     arx_proc.wait()
 
@@ -308,10 +350,9 @@ ignored_files = list(
 view.load(supported_files, (args.frontq_min, args.frontq_max, args.backq_min, args.backq_max))
 
 result = view.run()
+result = list(enumerate(result))
 
 # %%
-
-from time import sleep
 
 if not view.commit:
     print("no commit, nothing happed!")
@@ -319,4 +360,4 @@ if not view.commit:
         shutil.rmtree(temp_dir)
     sys.exit()
 
-organize(result, args, source_dir, temp_dir, ignored_files)
+organize(result, args, source_dir, temp_dir, ignored_files, START_TIME)

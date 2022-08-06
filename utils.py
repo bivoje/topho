@@ -37,8 +37,8 @@ from datetime import datetime, timezone
 class HandyTime:
     # t = HandyTime(time.struct_time((2022,8,2,7,23,45,0,0,0)).astimezone())
     # "{t        }".format(t=t) == '2022-08-02'
-    # "{t    :iso}".format(t=t) == '2022-08-02T07:23:45+0900'
-    # "{t.utc:iso}".format(t=t) == '2022-08-01T22:23:45+0000'
+    # "{t    :iso}".format(t=t) == '2022-08-02T07-23-45+0900'
+    # "{t.utc:iso}".format(t=t) == '2022-08-01T22-23-45+0000'
     # "{t.day :03}".format(t=t) == '002'
     # "{t  :%Y_%S}".format(t=t) == '2022_45'
     def __init__(self, dt):
@@ -72,7 +72,7 @@ class HandyTime:
         return self(format_spec)
 
     def iso(self):
-        return self('%Y-%m-%dT%H:%M:%S%z')
+        return self('%Y-%m-%dT%H-%M-%S%z')
 
     def get_utc(self):
         return HandyTime(self.datetime.astimezone(timezone.utc))
@@ -459,23 +459,79 @@ def format_name(formstr, index, path, source_dir, target_dir, exists=lambda p: p
 
 
 # %%
-def write_remainings(f, args, remaining, START_TIME, VERSION):
+def write_remainings(f, args, source_dir, remaining, START_TIME):
     f.write(f"#Topho {VERSION}\n")
     f.write(f"#WD {Path.cwd()}\n")
-    f.write(f"#SRC {args.source[1]}\n")
+    f.write(f"#SRC {source_dir}\n")
     f.write(f"#DST {args.target_dir}\n")
     f.write(f"#FMT {args.name_format}\n")
-    f.write(f"OPT {START_TIME:iso} {'copy' if args.keep else 'move'}\n")
+    f.write(f"#OPT {START_TIME:iso} {'copy' if args.keep else 'move'}\n")
     f.write(f"#REASON\tINDEX\tDUP\tSOURCE\tDECISION\tNOTE\n")
     for reason, idx, dup, path, dir, note in remaining:
         f.write(f"{reason}\t{idx}\t{dup}\t{path}\t{dir}\t{note}\n")
+
+class DummyArgs:
+    def __init__(self,
+        source, target_dir,
+        dry, keep, name_format, logfile,
+        filesystem_latency,
+
+        maxw = None, maxh = None,
+        test_names = None,
+        mpv = None, arx = None,
+        frontq_min = None, frontq_max = None,
+        backq_min = None, backq_max = None, 
+    ):
+        self.source = source
+        self.target_dir = target_dir
+
+        self.dry = dry
+        self.keep = keep
+        self.copy = keep
+        self.name_format = name_format
+        self.logfile = logfile
+        self.filesystem_latency = filesystem_latency
+
+        self.maxw, self.maxh = maxw, maxh
+        self.test_names = test_names
+        self.mpv, self.arx = mpv, arx
+        self.frontq_min, self.frontq_max = frontq_min, frontq_max
+        self.backq_min, self.backq_max = backq_min, backq_max
+
+def load_remainings(f):
+    ver = f.readline().rstrip('\n').split(' ', 1)[1]
+    cwd = f.readline().rstrip('\n').split(' ', 1)[1]
+    src = f.readline().rstrip('\n').split(' ', 1)[1]
+    dst = f.readline().rstrip('\n').split(' ', 1)[1]
+    fmt = f.readline().rstrip('\n').split(' ', 1)[1]
+    _, time, mode = f.readline().split()
+    heading = f.readline()
+
+    args = DummyArgs(
+        source = Path(src), target_dir = Path(dst),
+        dry = None,
+        keep = mode=='copy', name_format = fmt,
+        logfile = None,
+        filesystem_latency = None,
+    )
+
+    remaining = []
+    #for reason, idx, dup, path, dir, note in f:
+    for line in f:
+        reason, idx, dup, path, dir, note = line.rstrip('\n').split('\t')
+        dir = None if dir == '-' else int(dir)
+        dup = None if dup == '-' else int(dup)
+        remaining.append((reason, int(idx), dup, Path(path), dir, note))
+
+    return remaining, Path(cwd), args
+
 
 # %%
 import shutil
 from time import sleep
 import sys
 
-def organize(result, args, source_dir, temp_dir, ignored_files):
+def organize(result, args, source_dir, temp_dir, ignored_files, START_TIME):
     target_dir_created_root = args.target_dir
     while target_dir_created_root != Path('.') and not target_dir_created_root.parent.exists():
         target_dir_created_root = target_dir_created_root.parent
@@ -501,7 +557,7 @@ def organize(result, args, source_dir, temp_dir, ignored_files):
     skipped = []
 
     # FIXME i keeps increasing for skippedd, trashcaned, remaining files
-    for i, (cur, dir) in enumerate(result):
+    for i, (cur, dir) in result:
         if not cur.exists():
             remaining.append(('MISSING', i, '-', cur, dir, ''))
             continue
@@ -547,14 +603,14 @@ def organize(result, args, source_dir, temp_dir, ignored_files):
     if remaining:
         print(f"{len(remaining)} / {len(result)} files could not be {'copied' if args.keep else 'moved'}, detailed reasons are recorded.")
         if args.logfile == '-':
-            write_remainings(sys.stdout, remaining)
+            write_remainings(sys.stdout, args, source_dir, remaining, START_TIME)
         else:
             try:
                 with open(args.logfile, "at") as f:
-                    write_remainings(f, remaining)
+                    write_remainings(f, args, source_dir, remaining, START_TIME)
             except:
-                print("couldn't open the logfile")
-                write_remainings(sys.stdout, remaining)
+                print(f"couldn't open the logfile '{args.logfile}'")
+                write_remainings(sys.stdout, args, source_dir, remaining, START_TIME)
     else:
         print(f"All {len(result)} files have been {'copied' if args.keep else 'moved'} properly.")
 
@@ -587,6 +643,10 @@ def organize(result, args, source_dir, temp_dir, ignored_files):
 
         if not args.keep:
             args.source[1].unlink()
+
+    else:
+        if not args.keep:
+            try_rmdir_rec(source_dir)
 
 # %%
 from tkinter import *
