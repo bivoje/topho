@@ -285,7 +285,7 @@ parser.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='
     help="python style formatstring for moved file names, see <NAMEF> section")
 parser.add_argument('--test_names', type=Path, nargs='*',
     help='if provided, apply name_format on this filename, print then exits')
-parser.add_argument('--logfile', type=writable_file, default="topholog.txt",
+parser.add_argument('--logfile', type=writable_file, default=f"topholog_{START_TIME:iso}.txt",
     help='path to log file where unmoved file list will be written')
 parser.add_argument('--mpv', type=executable, metavar='MPVPATH', default="mpv.exe",
     help='path to invoke mpv player executable')
@@ -578,11 +578,13 @@ for i, (cur, dir) in enumerate(result):
         remaining.append(('OS', i, j, cur, dir, repr(e)))
 
 def write_remainings(f):
-    f.write(f"#Topho {VERSION} {START_TIME:iso} {'copy' if args.keep else 'move'}")
-    f.write(f"#{args.source[1].absolute()}\n")
-    f.write(f"#{args.target_dir.absolute()}\n")
-    f.write(f"#{args.name_format}\n")
-    f.write(f"#REASON\tINDEX\tDUP\tSOURCE\tDECISION\n")
+    f.write(f"#Topho {VERSION}\n")
+    f.write(f"#WD {Path.cwd()}\n")
+    f.write(f"#SRC {args.source[1]}\n")
+    f.write(f"#DST {args.target_dir}\n")
+    f.write(f"#FMT {args.name_format}\n")
+    f.write(f"OPT {START_TIME:iso} {'copy' if args.keep else 'move'}\n")
+    f.write(f"#REASON\tINDEX\tDUP\tSOURCE\tDECISION\tNOTE\n")
     for reason, idx, dup, path, dir, note in remaining:
         f.write(f"{reason}\t{idx}\t{dup}\t{path}\t{dir}\t{note}\n")
 
