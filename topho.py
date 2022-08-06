@@ -293,6 +293,8 @@ parser.add_argument('--mpv', type=executable, metavar='MPVPATH', default="mpv.ex
     # while 'mpv.exe' doesn't.
 parser.add_argument('--arx', type=executable, metavar='ARXPATH', default="Bandizip.exe",
     help='path to invoke un-archive files')
+parser.add_argument("--filesystem_latency", type=float, metavar='FSLAT', default=0.01,
+    help='time to wait after filesystem operation like mkdir')
 parser.add_argument('--frontq_min', type=positive_int, metavar='FQm', default=3,
     help='minimum # of images pre-loaded, increase if forward loading is too slow')
 parser.add_argument('--frontq_max', type=positive_int, metavar='FQM', default=10,
@@ -566,8 +568,8 @@ for i, (cur, dir) in enumerate(result):
         if args.keep:
             if not dst.parent.exists():
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                sleep(0.01) # wait for filesystem update
-            shutil.copy(cur, dst)
+                sleep(args.filesystem_latency) # wait for filesystem update
+            shutil.copy2(cur, dst)
         else:
             cur.replace(dst)
             # FIXME if target subdir not exist?
