@@ -281,7 +281,7 @@ parser.add_argument('--maxw', type=positive_int, default=int(windll.user32.GetSy
     help='maximum width of image, defaults to screen width * 0.8')
 parser.add_argument('--maxh', type=positive_int, default=int(windll.user32.GetSystemMetrics(1)*0.8),
     help='maximum height of image, defaults to screen height * 0.8')
-parser.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{name}',
+parser.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}',
     help="python style formatstring for moved file names, see <NAMEF> section")
 parser.add_argument('--test_names', type=Path, nargs='*',
     help='if provided, apply name_format on this filename, print then exits')
@@ -514,6 +514,7 @@ target_dir_created_root = args.target_dir
 while target_dir_created_root != Path('.') and not target_dir_created_root.parent.exists():
     target_dir_created_root = target_dir_created_root.parent
 
+leave_crumbs(args.target_dir)
 args.target_dir.mkdir(parents=True, exist_ok=True)
 
 dst_dirs = [] # :: [ (path, created_by_program?) ]
@@ -602,22 +603,9 @@ if remaining:
 else:
     print(f"All {len(result)} files have been {'copied' if args.keep else 'moved'} properly.")
 
-# remove dst_dir if possible
-for dirpath, created in dst_dirs:
-    if not created: continue
-    try:
-        dirpath.rmdir()
-    except OSError:
-        # error occures when dir is nonempty
-        # we only want to remove unneccessary empty dirs that we created
-        pass
-
-    try:
-        dirpath.rmdir()
-    except OSError:
-        # error occures when dir is nonempty
-        # we only want to remove unneccessary empty dirs that we created
-        pass
+# remove and restore dst_dir if possible
+try_rmdir_rec(args.target_dir)
+collect_crumbs(args.target_dir)
 
 # remove created target_dir parents if possible
 target_dir = args.target_dir

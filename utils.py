@@ -1,4 +1,4 @@
-
+# %%
 # from https://gist.github.com/aaomidi/0a3b5c9bd563c9e012518b495410dc0e
 VIDEO_EXTS = set([ # play with mpv
     "webm", "mkv", "flv", "vob", "ogv", "ogg", "rrc", "gifv", "mng", "mov", "avi", "qt", "wmv", "yuv", "rm", "asf", "amv", "mp4", "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv", "m4v", "svi", "3gp", "3g2", "mxf", "roq", "nsv", "flv", "f4v", "f4p", "f4a", "f4b", "mod",
@@ -368,3 +368,32 @@ class ImageLoadingQueue:
 
     def print(self, *args, **kargs):
         if self.debug: print(*args, **kargs)
+
+# %%
+from pathlib import Path
+import tempfile
+import os
+
+def leave_crumbs(root, prefix='crumb'):
+    #if not root.exists(): return
+    for subdir in root.glob('**/'):
+        fd, tpath = tempfile.mkstemp(dir=subdir, prefix=prefix)
+        os.close(fd)
+
+def collect_crumbs(root, prefix='crumb'):
+    for subpath in root.glob(f'**/{prefix}*'):
+        subpath.unlink()
+
+def mimic_tree(source_root, target_root):
+    for subdir in source_root.glob('**/'):
+        tubdir = target_root / subdir.relative_to(source_root)
+        tubdir.mkdir(parents=True, exist_ok=True)
+
+def try_rmdir_rec(root):
+    for subdir in filter(lambda p: p.is_dir(), root.iterdir()):
+        if not subdir.is_dir(): continue
+        try_rmdir_rec(subdir)
+    try: root.rmdir()
+    except OSError: pass
+
+# %%
