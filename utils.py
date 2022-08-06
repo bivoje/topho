@@ -1,4 +1,6 @@
 # %%
+VERSION = "2.0.0"
+
 # from https://gist.github.com/aaomidi/0a3b5c9bd563c9e012518b495410dc0e
 VIDEO_EXTS = set([ # play with mpv
     "webm", "mkv", "flv", "vob", "ogv", "ogg", "rrc", "gifv", "mng", "mov", "avi", "qt", "wmv", "yuv", "rm", "asf", "amv", "mp4", "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv", "m4v", "svi", "3gp", "3g2", "mxf", "roq", "nsv", "flv", "f4v", "f4p", "f4a", "f4b", "mod",
@@ -207,16 +209,17 @@ class HermitDup(HandyInt):
 # %%
 from collections import deque
 from threading import Thread, Lock, Semaphore
-from PIL import ImageTk,Image
+import PIL.Image
+import PIL.ImageTk
 
 def load_tk_image(path, maxw, maxh):
-    img = Image.open(str(path))
+    img = PIL.Image.open(str(path))
     width, height = img.size
     ratio = min(maxw/width, maxh/height)
     if ratio < 1 or 5 < ratio:
         # int cast is mandatory. otherwise, it returns None
-        img = img.resize((int(width*ratio), int(height*ratio)), Image.ANTIALIAS)
-    return ImageTk.PhotoImage(img)
+        img = img.resize((int(width*ratio), int(height*ratio)), PIL.Image.ANTIALIAS)
+    return PIL.ImageTk.PhotoImage(img)
 
 class ImageLoadingQueue:
     # public methods, run on main thread
@@ -397,3 +400,340 @@ def try_rmdir_rec(root):
     except OSError: pass
 
 # %%
+
+# source_dir must be prefix of path. (both Path object)
+# returns target path object
+format_name_lookup_cache = {}
+def format_name(formstr, index, path, source_dir, target_dir, exists=lambda p: p.exists()):
+    global format_name_lookup_cache
+    assert target_dir.exists() and target_dir.is_dir()
+    if path.exists():
+        size = HandyInt(os.path.getsize(path)),
+        # note that windows' file explorer's 'date' has more complex method of determination
+        # if photo has no taken-time info, it usually is modified date (not created)
+        # mod date is kept unchanged when copying & moving (to other drive)
+        # https://superuser.com/a/1674290
+        created  = HandyTime(datetime.fromtimestamp(os.path.getctime(path)).astimezone())
+        modified = HandyTime(datetime.fromtimestamp(os.path.getmtime(path)).astimezone())
+        accessed = HandyTime(datetime.fromtimestamp(os.path.getatime(path)).astimezone())
+    else:
+        size = HandyInt(2**(6+index*4)),
+        created  = HandyTime(datetime.fromtimestamp(0,tz=timezone.utc).astimezone())
+        modified = HandyTime(datetime(2013,6,5,21,54,57).astimezone())
+        accessed = HandyTime(datetime(2054,6,8,4,13,26).astimezone())
+
+    # [:-1] to removing last '.'
+    parents = list(p.name for p in path.relative_to(source_dir.parent).parents)
+    hier = list(reversed(parents[:-1])) + ['']
+
+    gen = lambda dup: target_dir / (formstr.format(
+        index = HandyInt(index),
+        name = HandyString(path.stem),
+        hier = HandySlice(hier, '\\'),
+        size = size,
+        created  = created,
+        modified = modified,
+        accessed = accessed,
+        dup = HermitDup(dup),
+    ) + path.suffix)
+
+    newpath0 = gen(0)
+
+    if not exists(newpath0): # ret0 is ok to use
+        format_name_lookup_cache[str(newpath0)] = 1
+        return newpath0, 0
+
+    if newpath0 == gen(1): # considering 'dup' is not used in formatstr.
+        # just return it (probably filename duplication error occures)
+        return newpath0, 1
+
+    # use 1 as default as there already is one file with the name.
+    j = format_name_lookup_cache.get(str(newpath0), 1)
+
+    while True: # FIXME this goes indefinitely.. should I add cap as an option??
+        newpath = gen(j)
+        if not exists(newpath):
+            format_name_lookup_cache[str(newpath0)] = j+1
+            return newpath, j
+        j += 1
+
+
+# %%
+def write_remainings(f, args, remaining, START_TIME, VERSION):
+    f.write(f"#Topho {VERSION}\n")
+    f.write(f"#WD {Path.cwd()}\n")
+    f.write(f"#SRC {args.source[1]}\n")
+    f.write(f"#DST {args.target_dir}\n")
+    f.write(f"#FMT {args.name_format}\n")
+    f.write(f"OPT {START_TIME:iso} {'copy' if args.keep else 'move'}\n")
+    f.write(f"#REASON\tINDEX\tDUP\tSOURCE\tDECISION\tNOTE\n")
+    for reason, idx, dup, path, dir, note in remaining:
+        f.write(f"{reason}\t{idx}\t{dup}\t{path}\t{dir}\t{note}\n")
+
+# %%
+import shutil
+from time import sleep
+import sys
+
+def organize(result, args, source_dir, temp_dir, ignored_files):
+    target_dir_created_root = args.target_dir
+    while target_dir_created_root != Path('.') and not target_dir_created_root.parent.exists():
+        target_dir_created_root = target_dir_created_root.parent
+
+    leave_crumbs(args.target_dir)
+    args.target_dir.mkdir(parents=True, exist_ok=True)
+
+    dst_dirs = [] # :: [ (path, created_by_program?) ]
+
+    for i in range(10):
+        dirpath = args.target_dir / str(i)
+        if dirpath.exists():
+            while dirpath.exists() and not dirpath.is_dir():
+                dirpath = args.target_dir / (dirpath.name + "_")
+        if not dirpath.exists():
+            dirpath.mkdir()
+            dst_dirs.append((dirpath,True))
+        else:
+            dst_dirs.append((dirpath,False))
+
+    # files couldn't be moved
+    remaining = [] # :: [(reason, idx, dup, path, dir, note)]
+    skipped = []
+
+    # FIXME i keeps increasing for skippedd, trashcaned, remaining files
+    for i, (cur, dir) in enumerate(result):
+        if not cur.exists():
+            remaining.append(('MISSING', i, '-', cur, dir, ''))
+            continue
+
+        if dir is None: # skipped files
+            skipped.append(dir)
+            continue
+
+        try:
+            if dir == 0: # this is a trashcan
+                dst, j = format_name("{modified}[-[{hier:]-]!}{name}_{dup}", i, cur, source_dir, dst_dirs[0][0])
+            else:
+                dst, j = format_name(args.name_format, i, cur, source_dir, dst_dirs[dir][0])
+        except Exception as e:
+            # this is unlikely to happen, but if it does, make sure other files get moved safely
+            print(f"while moving '{cur}' to '{dst_dirs[dir][0]}', ")
+            print(e)
+            print("please report this to the developer!")
+            remaining.append(('FORMAT', i, '-', cur, dir, repr(e)))
+            continue
+
+        if dst.exists():
+            remaining.append(('DUP', i, j, cur, dir, ''))
+            continue
+
+        if args.dry:
+            print(("copying " if args.keep else "moving ") + str(cur) + " to " + str(dst) + "!")
+            continue
+
+        try:
+            if args.keep:
+                if not dst.parent.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    sleep(args.filesystem_latency) # wait for filesystem update
+                shutil.copy2(cur, dst)
+            else:
+                cur.replace(dst)
+                # FIXME if target subdir not exist?
+
+        except OSError as e:
+            remaining.append(('OS', i, j, cur, dir, repr(e)))
+
+    if remaining:
+        print(f"{len(remaining)} / {len(result)} files could not be {'copied' if args.keep else 'moved'}, detailed reasons are recorded.")
+        if args.logfile == '-':
+            write_remainings(sys.stdout, remaining)
+        else:
+            try:
+                with open(args.logfile, "at") as f:
+                    write_remainings(f, remaining)
+            except:
+                print("couldn't open the logfile")
+                write_remainings(sys.stdout, remaining)
+    else:
+        print(f"All {len(result)} files have been {'copied' if args.keep else 'moved'} properly.")
+
+    # remove and restore dst_dir if possible
+    try_rmdir_rec(args.target_dir)
+    collect_crumbs(args.target_dir)
+
+    # remove created target_dir parents if possible
+    target_dir = args.target_dir
+    while target_dir_created_root != target_dir:
+        try: target_dir.rmdir()
+        except OSError: break
+        target_dir = target_dir.parent
+
+    try: target_dir.rmdir()
+    except OSError: pass
+
+    # try removing source_dir if possible
+    # FIXME does not work if sub directory exists despite empty
+    # try: source_dir.rmdir()
+    # except OSError: pass
+
+    # remove un-archived files and possibly source
+    if temp_dir is not None:
+        if skipped or remaining or ignored_files:
+            print(f"{len(skipped) + len(remaining) + len(ignored_files)} files are still in temp dir, keeping {source_dir}")
+        else:
+            shutil.rmtree(temp_dir)
+            pass
+
+        if not args.keep:
+            args.source[1].unlink()
+
+# %%
+from tkinter import *
+import subprocess
+
+class OrganHelperView:
+    def __init__(self, maxw, maxh, mpvcmd, STATIC):
+        self.maxw = maxw
+        self.maxh = maxh
+        self.mpvcmd = mpvcmd
+
+        self.root = Tk()
+        self.root.title(f"Topho {VERSION}")
+
+        # FIXME for some reason, can't load image from main thread... :/
+        # default_img = front_queue()[0]
+        self.unrecog_img = load_tk_image(STATIC/'unrecognized.png', self.maxw, self.maxh)
+        self.loading_img = load_tk_image(STATIC/'loading.png',      self.maxw, self.maxh)
+        self.broken_img  = load_tk_image(STATIC/'broken.png',       self.maxw, self.maxh)
+        self.video_img   = load_tk_image(STATIC/'video.png',        self.maxw, self.maxh)
+        self.start_img   = load_tk_image(STATIC/'start.png',        self.maxw, self.maxh)
+        self.end_img     = load_tk_image(STATIC/'end.png',          self.maxw, self.maxh)
+        self.lab = Label(image=self.start_img)
+        self.lab.grid(row=0,column=1,columnspan=3)
+
+        self.last_key = None
+        self.key_released = True
+        self.started = False
+        self.commit = False
+
+    def load(self, supported_files, qparam):
+        self.fqm, self.fqM, self.bqm, self.bqM = qparam
+        self.front_queue = ImageLoadingQueue(supported_files, self.fqm, self.fqM, self.maxw, self.maxh)
+        self.back_queue  = ImageLoadingQueue([],              self.bqm, self.bqM, self.maxw, self.maxh)
+
+    def show_current(self):
+        if not self.started:
+            img = self.start_img
+            title = f"Topho {VERSION}"
+        else:
+            ret = self.front_queue.get(block=False, pop=False)
+            if ret is None: # no more data
+                img = self.end_img
+                title = "END"
+            elif not ret: # loading
+                img = self.loading_img
+                title = "LOADING"
+            else:
+                img = ret[0]
+                title = ('-' if ret[2] is None else str(ret[2])) + " " + ret[1].name
+
+        if img is None: # unrecognized type
+            img = self.unrecog_img
+        elif not img: # image broken..
+            img = self.broken_img
+        elif img == 'video':
+            img = self.video_img
+            subprocess.Popen([self.mpvcmd, "--loop=inf", ret[1]])
+
+        self.lab.config(image=img)
+        self.lab.grid(row=0,column=1,columnspan=3)
+        self.root.title(title)
+
+
+    def key_press(self, e):
+        if e.char == self.last_key and not self.key_released: return
+        self.last_key, self.key_released = e.char, False
+
+        if self.last_key == '\x1b':
+            #print("quit")
+            self.root.destroy()
+            return
+
+        if self.last_key == 'c':
+            #print("commit")
+            self.commit = True
+            self.root.destroy()
+            return
+
+        if self.last_key == ' ' and not self.started:
+            #print("start")
+            self.started = True
+            self.show_current()
+            return
+
+        if not self.started: return
+
+        elif self.last_key == 'r':
+            #print("reload")
+            self.show_current()
+
+        elif '0' <= self.last_key and self.last_key <= '9':
+            #print("do")
+            ret = self.front_queue.get(block=False)
+            if ret: # no more data, do nothing
+                img, orig_path, _ = ret
+                self.back_queue.put((img, orig_path, int(self.last_key)))
+            self.show_current()
+
+        elif self.last_key == 'u':
+            #print("undo")
+            ret = self.back_queue.get()
+            if ret is None: # at the start
+                self.started = False
+                self.show_current()
+            elif not ret: # loading
+                # FIXME
+                self.lab.config(image=self.loading_img)
+                self.lab.grid(row=0,column=1,columnspan=3)
+            else:
+                self.front_queue.put(ret)
+                self.show_current()
+
+        elif self.last_key == 'U':
+            #print("redo")
+            ret = self.front_queue.get(block=False)
+            if ret: # no more data, do nothing
+                self.back_queue.put(ret)
+            self.show_current()
+
+        elif self.last_key == ' ':
+            #print("skip")
+            ret = self.front_queue.get(block=False)
+            if ret: # no more data, do nothing
+                img, orig_path, _ = ret
+                self.back_queue.put((img, orig_path, None))
+            self.show_current()
+
+
+    def key_release(self, e):
+        self.key_released = True
+
+
+    def run(self):
+        self.front_queue.run()
+        self.back_queue.run()
+
+
+        self.root.bind('<KeyPress>', self.key_press)
+        self.root.bind('<KeyRelease>', self.key_release)
+
+        self.root.mainloop()
+
+        self.front_queue.quit()
+        self.back_queue.quit()
+
+        result = self.back_queue.flush()
+        result.reverse()
+
+        return result
