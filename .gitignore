@@ -3,3 +3,4 @@ dist/*
 **/__pycache__/*
 topho.spec
 topholog_*.txt
+.vscode/*

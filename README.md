@@ -277,9 +277,9 @@ TODO list
 Images
 ------------------
 
-![start_img](./start.png "start_img")
-![end_img](./end.png "end_img")
-![loading_img](./loading.png "loading_img")
-![video_img](./video.png "video_img")
-![unrecog_img](./unrecognized.png "unrecog_img")
-![broken_img](./broken.png "broken_img")
+![start_img](resources/start.png "start_img")
+![end_img](resources/end.png "end_img")
+![loading_img](resources/loading.png "loading_img")
+![video_img](resources/video.png "video_img")
+![unrecog_img](resources/unrecognized.png "unrecog_img")
+![broken_img](resources/broken.png "broken_img")
