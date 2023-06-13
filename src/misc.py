@@ -19,6 +19,9 @@ ARXIV_EXTS = set([
     "egg",
 ])
 
+from pathlib import Path
+SCRIPTDIR = Path(__file__).parent
+
 
 import PIL.Image
 import PIL.ImageTk
@@ -31,3 +34,31 @@ def load_tk_image(path, maxw, maxh):
         # int cast is mandatory. otherwise, img.resize returns None
         img = img.resize((int(width*ratio), int(height*ratio)), PIL.Image.ANTIALIAS)
     return PIL.ImageTk.PhotoImage(img)
+
+
+import json
+def dump_selection(f, source_dir, selections):
+    data = {
+        "info": "https://github.com/bivoje/topho",
+        "version": VERSION,
+        "type": "selection_dump",
+        "working_dir": str(Path.cwd()),
+        "source_dir": str(source_dir),
+        #"sort_by": ...
+        "selections": [ (str(path), sel) for path, sel in selections ],
+    }
+    json.dump(data, f, indent=2)
+
+def load_selection(f): return json.load(f) # TODO handle json error in case the user edited it wrongly
+
+def dump_mapping(f, mappings):
+    data = {
+        "info": "https://github.com/bivoje/topho",
+        "version": VERSION,
+        "type": "mapping_dump",
+        #"parent_dir": parent_dir,
+        "mappings": [ (str(src), str(dst)) for src, dst in mappings ],
+    }
+    json.dump(data, f, indent=2)
+
+def load_mapping(f): return json.load(f) # TODO handle json error in case the user edited it wrongly

@@ -1,20 +1,18 @@
 from tkinter import *
-import subprocess
 
 from misc import *
 from loading_queue import ImageLoadingQueue
 
-
 class SelectorView:
-    def __init__(self, maxw, maxh, mpvcmd, STATIC):
+    def __init__(self, maxw, maxh, run_player, STATIC):
         self.maxw = maxw
         self.maxh = maxh
-        self.mpvcmd = mpvcmd
+        self.run_player = run_player
 
         self.root = Tk()
         self.root.title(f"Topho {VERSION}")
 
-        # FIXME for some reason, can't load image from main thread... :/
+        # FIXME for some reason, can't load image from the main thread... :/
         # default_img = front_queue()[0]
         self.unrecog_img = load_tk_image(STATIC/'unrecognized.png', self.maxw, self.maxh)
         self.loading_img = load_tk_image(STATIC/'loading.png',      self.maxw, self.maxh)
@@ -28,12 +26,14 @@ class SelectorView:
         self.last_key = None
         self.key_released = True
         self.started = False
-        self.commit = False
+        self.contd = False
 
-    def load(self, supported_files, qparam):
+    def load(self, source_files, qparam):
         self.fqm, self.fqM, self.bqm, self.bqM = qparam
-        self.front_queue = ImageLoadingQueue(supported_files, self.fqm, self.fqM, lambda path: load_tk_image(path, self.maxw, self.maxh))
-        self.back_queue  = ImageLoadingQueue([],              self.bqm, self.bqM, lambda path: load_tk_image(path, self.maxw, self.maxh))
+        srcfiles = [(path, None) for path in source_files]
+        # queue : [ (image, path, selection) ]; first fed with [(path,selection)]
+        self.front_queue = ImageLoadingQueue(srcfiles, self.fqm, self.fqM, lambda path: load_tk_image(path, self.maxw, self.maxh))
+        self.back_queue  = ImageLoadingQueue([],       self.bqm, self.bqM, lambda path: load_tk_image(path, self.maxw, self.maxh))
 
     def show_current(self):
         if not self.started:
@@ -46,7 +46,7 @@ class SelectorView:
                 title = "END"
             elif not ret: # loading
                 img = self.loading_img
-                title = "LOADING"
+                title = "LOADING" # FIXME can we do automatic refresh?
             else:
                 img = ret[0]
                 title = ('-' if ret[2] is None else str(ret[2])) + " " + ret[1].name
@@ -57,7 +57,7 @@ class SelectorView:
             img = self.broken_img
         elif img == 'video':
             img = self.video_img
-            subprocess.Popen([self.mpvcmd, "--loop=inf", ret[1]])
+            self.run_player(ret[1])
 
         self.lab.config(image=img)
         self.lab.grid(row=0,column=1,columnspan=3)
@@ -74,8 +74,8 @@ class SelectorView:
             return
 
         if self.last_key == 'c':
-            #print("commit")
-            self.commit = True
+            #print("continue")
+            self.contd = True
             self.root.destroy()
             return
 
@@ -146,7 +146,8 @@ class SelectorView:
         self.front_queue.quit()
         self.back_queue.quit()
 
-        result = self.back_queue.drain()
-        result.reverse()
+        back_result = self.back_queue.drain() 
+        back_result.reverse()
+        front_result = self.front_queue.drain()
 
-        return result
+        return back_result + front_result

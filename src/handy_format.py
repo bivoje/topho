@@ -195,8 +195,8 @@ import os
 format_name_lookup_cache = {}
 def format_name(formstr, index, path, source_dir, target_dir, exists=lambda p: p.exists()):
     global format_name_lookup_cache
-    assert target_dir.exists() and target_dir.is_dir()
-    if path.exists():
+    #assert target_dir.exists() and target_dir.is_dir() # FIXME don't need to check when apply
+    if exists(path):
         size = HandyInt(os.path.getsize(path)),
         # note that windows' file explorer's 'date' has more complex method of determination
         # if photo has no taken-time info, it usually is modified date (not created)

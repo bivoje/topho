@@ -1,7 +1,6 @@
 import argparse
 import os
 import shutil
-from pathlib import Path
 from ctypes import windll
 
 from misc import *
@@ -112,6 +111,7 @@ def nameformat(s):
         print("BUG! report to the developer!", repr(e))
         raise e
 
+
 # https://stackoverflow.com/a/52025430
 class RawTextArgumentDefaultsHelpFormatter(
         argparse.ArgumentDefaultsHelpFormatter,
@@ -124,137 +124,167 @@ def get_parser(start_time):
         formatter_class=RawTextArgumentDefaultsHelpFormatter,
         description='Minimallistic utility for manual image organizing',
         epilog='''
-    QUEUE:
-        TODO
+QUEUE:
+                BQM  BQm                            FQm  FQM
+                /----------------------------------------`
+    selected <-| .. | back queue | = | front queue | .. |<- unselected
+                `----------------------------------------/
+        unloaded  |<-        loaded in memory      <-|   unloaded
+                                < 0-9 <
+                                <  r  <
+                                >  u  >
 
-    NAMEF:
-        You can describe new name for moved file using python style formating.
-        For example, giving --name_format="{index}th-image-{name}__{size}bytes"
-        converts "nyancat.gif" to "1th-image-nyancat__1038bytes.gif".
-        See following sections for available formatting options and variables.
+NAMEF:
+    You can describe new name for moved file using python style formating.
+    For example, giving --name_format="{index}th-image-{name}__{size}bytes"
+    converts "nyancat.gif" to "1th-image-nyancat__1038bytes.gif".
+    See following sections for available formatting options and variables.
 
-    NAMEF variables:
-        index    :int  - enumeration, starting from 0
-        name     :str  - original name of the file
-        size     :int  - size of the file in bytes
-        hier     :slice- list of parent directories from source_dir, inclusive
-        created  :time - file creation time
-        modified :time - file modification time
-        accessed :time - file access time
-        dup      :dup  - enumeration among duplicated names, starting from 0
+NAMEF variables:
+    index    :int  - enumeration, starting from 0
+    name     :str  - original name of the file
+    size     :int  - size of the file in bytes
+    hier     :slice- list of parent directories from source_dir, inclusive
+    created  :time - file creation time
+    modified :time - file modification time
+    accessed :time - file access time
+    dup      :dup  - enumeration among duplicated names, starting from 0
 
-    NAMEF formatting:
-        Before anything, note that only attribute access is allowed for variables,
-        which means "{index*2}" is cannot be done. So we provide some attribute
-        extension for ease of handling variables.
+NAMEF formatting:
+    Before anything, note that only attribute access is allowed for variables,
+    which means "{index*2}" is cannot be done. So we provide some attribute
+    extension for ease of handling variables.
 
-        For integer type, additional arithmetic attributes are provided as well
-        as basic integer formatting syntax. You can do (asssuming index=9)
-        - .p<n>, .t<n> for addition
-        "{index.p20}" == '29'
-        - .m<n> for subtraction
-        "{index.m10}" == '-1'
-        - .x<n>, .X<n> for multiplication
-        "{index.x3}" == '27'
-        - .d<n> for integer division
-        "{index.d2}" == '4'
-        - mixture of all
-        "{index.p3.x2.4}" == '6'
-        - with integer format_spec
-        "{index.p3.x2.4:+03}" == '+006'
+    For integer type, additional arithmetic attributes are provided as well
+    as basic integer formatting syntax. You can do (asssuming index=9)
+    - .p<n>, .t<n> for addition
+    "{index.p20}" == '29'
+    - .m<n> for subtraction
+    "{index.m10}" == '-1'
+    - .x<n>, .X<n> for multiplication
+    "{index.x3}" == '27'
+    - .d<n> for integer division
+    "{index.d2}" == '4'
+    - mixture of all
+    "{index.p3.x2.4}" == '6'
+    - with integer format_spec
+    "{index.p3.x2.4:+03}" == '+006'
 
-        For slice type, start-end slicing attributes are provided. format spec can be
-        preceded with a seperator as '<sep>!<spec>' which will be used to join slice elements.
-        If spereator is omitted, it defaults to '' or '\\' for 'hier' variable.
-        <spec> is basic python formatter, applys element-wisely. Each formatted result
-        then joined by <sep>. string types are simliar to slice type but <spec> applys to
-        the whole string. You can do (assuming name=asdf)
-        - ._<n> for starting index, same as str[n:]
-        "{slice._2}" == 'df'
-        - .__<m> for ending index, same as str[:m]
-        "{slice.__3}" == 'asd'
-        - ._<n>_<m> to take range [n, m), same as str[n:m]
-        "{name._1_3}" == 'sd'
-        - indexing from behind, use 'm' prefix instead of '-' to indicate negative
-        "{name._1_m1}" == 'sd'
-        - complex mixture example
-        "=={name._3:#^7}---" == '==##asd##---'
+    For slice type, start-end slicing attributes are provided. format spec can be
+    preceded with a seperator as '<sep>!<spec>' which will be used to join slice elements.
+    If spereator is omitted, it defaults to '' or '\\' for 'hier' variable.
+    <spec> is basic python formatter, applys element-wisely. Each formatted result
+    then joined by <sep>. string types are simliar to slice type but <spec> applys to
+    the whole string. You can do (assuming name=asdf)
+    - ._<n> for starting index, same as str[n:]
+    "{slice._2}" == 'df'
+    - .__<m> for ending index, same as str[:m]
+    "{slice.__3}" == 'asd'
+    - ._<n>_<m> to take range [n, m), same as str[n:m]
+    "{name._1_3}" == 'sd'
+    - indexing from behind, use 'm' prefix instead of '-' to indicate negative
+    "{name._1_m1}" == 'sd'
+    - complex mixture example
+    "=={name._3:#^7}---" == '==##asd##---'
 
-        'hier' is slice variable consisting of directory names from source_dir to
-        the file. '' element is at the end to add trailing seperator.
-        Assume source_dir = 'images' and filepath is 'images\\source\\dir\\y.png', then
-        hier == ['images', 'source', 'dir', ''] and name == y.png,
-        - simpy using with {name} to get filepath (from source_dir)
-        "{hier}{name}" == 'images\\source\\dir\\y.png'
-        - use custome seperator with custom elem-wize formatting
-        "{hier:-!:_<5}{name}" == 'images-source-dir__-y.png'
-        - remove trailing seperator by slicing
-        "{hier._1_m1}_{name}" == 'source\\dir_y.png'
+    'hier' is slice variable consisting of directory names from source_dir to
+    the file. '' element is at the end to add trailing seperator.
+    Assume source_dir = 'images' and filepath is 'images\\source\\dir\\y.png', then
+    hier == ['images', 'source', 'dir', ''] and name == y.png,
+    - simpy using with {name} to get filepath (from source_dir)
+    "{hier}{name}" == 'images\\source\\dir\\y.png'
+    - use custome seperator with custom elem-wize formatting
+    "{hier:-!:_<5}{name}" == 'images-source-dir__-y.png'
+    - remove trailing seperator by slicing
+    "{hier._1_m1}_{name}" == 'source\\dir_y.png'
 
-        For time types, you can use strftime format in format_spec region.
-        See https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
-        for more detailed explanations. Examples follows..
-        - default formatting shows iso-8601 date
-        "{created}" == '2022-08-02'
-        - by specifying 'iso' as format you get full iso-8601 representation
-        "{created:iso}" == '2022-08-02T07-23-45+0900'
-        - accessing 'utc' attribute gives datetime in UTC
-        "{created.utc:iso}" == '2022-08-01T22-23-45+0000'
-        - all attributes of python datatime struct supported
-        "{created.day:03}" == '002'
-        - strftime style formatting
-        "{created:%Y_%S}" == '2022_45'
+    For time types, you can use strftime format in format_spec region.
+    See https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
+    for more detailed explanations. Examples follows..
+    - default formatting shows iso-8601 date
+    "{created}" == '2022-08-02'
+    - by specifying 'iso' as format you get full iso-8601 representation
+    "{created:iso}" == '2022-08-02T07-23-45+0900'
+    - accessing 'utc' attribute gives datetime in UTC
+    "{created.utc:iso}" == '2022-08-01T22-23-45+0000'
+    - all attributes of python datatime struct supported
+    "{created.day:03}" == '002'
+    - strftime style formatting
+    "{created:%Y_%S}" == '2022_45'
 
-        'dup' type is similar to 'int' type, all arithmetic attbributes are
-        provided but has extended format spec. Normal integer format spec
-        is may preceeded by enclosure specifier of format "<prefix>!<suffix>!".
-        If enclosure specifier exists dup acts in hermit mode, expose itself
-        (and enclosure) only if dup > 0.
-        For example, if there are only 1 file created on 2022-08-02, the
-        formatstring "{created}{dup.x2.m2:==(!)!0^3}" simply yields '2022-08-02'.
-        But if there are 4 of them, they will be renamed as (in sorted order)
-        '2022-08-02==(-20)', '2022-08-02', '2022-08-02==(020)' '2022-08-02==(040)'.
-        Note that hermit mode depends on result 'dup.x2.m2' not the original 'dup'.
-        If format_spec is empty, you can omit trailing '!', like "{dup:(!)}"
+    'dup' type is similar to 'int' type, all arithmetic attbributes are
+    provided but has extended format spec. Normal integer format spec
+    is may preceeded by enclosure specifier of format "<prefix>!<suffix>!".
+    If enclosure specifier exists dup acts in hermit mode, expose itself
+    (and enclosure) only if dup > 0.
+    For example, if there are only 1 file created on 2022-08-02, the
+    formatstring "{created}{dup.x2.m2:==(!)!0^3}" simply yields '2022-08-02'.
+    But if there are 4 of them, they will be renamed as (in sorted order)
+    '2022-08-02==(-20)', '2022-08-02', '2022-08-02==(020)' '2022-08-02==(040)'.
+    Note that hermit mode depends on result 'dup.x2.m2' not the original 'dup'.
+    If format_spec is empty, you can omit trailing '!', like "{dup:(!)}"
     ''')
 
-    parser.add_argument('source', type=existing_directory_or_archive,
+    parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}',
+        help="if specified, shows program's version number and exit ignoring any other commands")
+
+    parser.add_argument('-c', choices=['select','apply','commit'], action='append', metavar="COMMAND", dest="command",
+        help='subcommand to execute, one of "select", "apply", "commit"')
+
+    select_options = parser.add_argument_group('select options',
+        description='Options for "select" subcommand. Lets user to select groups for each images found in SOURCE. '
+                  + 'Then generates selection dump file')
+    select_options.add_argument('--source', type=existing_directory_or_archive, required=True,
         help='path of image directory to organize or an archive file')
-    parser.add_argument('target_dir', type=Path, default=None, nargs='?',
-        help='path of directory to store organized images, defaults to current directory, created if not exists')
-        #nargs='?' makes this positional argument optional https://stackoverflow.com/a/4480202
-    parser.add_argument('--version', '-v', action='version', version=f'%(prog)s {VERSION}')
-    parser.add_argument('--dry', '-n', dest='dry', action='store_true',
-        help="don't actually move files, only pretend organizing")
-    parser.add_argument('--keep', '--copy', dest='keep', action='store_true',
-        help="keep the original files (copy, not move)")
-    parser.add_argument('--maxw', type=positive_int, default=int(windll.user32.GetSystemMetrics(0)*0.8),
+    select_options.add_argument('--maxw', type=positive_int, default=int(windll.user32.GetSystemMetrics(0)*0.8),
         help='maximum width of image, defaults to screen width * 0.8')
-    parser.add_argument('--maxh', type=positive_int, default=int(windll.user32.GetSystemMetrics(1)*0.8),
+    select_options.add_argument('--maxh', type=positive_int, default=int(windll.user32.GetSystemMetrics(1)*0.8),
         help='maximum height of image, defaults to screen height * 0.8')
-    parser.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}',
-        help="python style formatstring for moved file names, see <NAMEF> section")
-    parser.add_argument('--test_names', type=Path, nargs='*',
-        help='if provided, apply name_format on this filename, print then exits')
-    parser.add_argument('--logfile', type=writable_file, default=f"topholog_{start_time:iso}.txt",
-        help='path to log file where unmoved file list will be written')
-    parser.add_argument('--mpv', type=executable, metavar='MPVPATH', default="mpv.exe",
-        help='path to invoke mpv player executable')
-        # '--mpv mpv' resolved to 'mpv.COM' which prints some info to stdout by default
-        # while 'mpv.exe' doesn't.
-    parser.add_argument('--arx', type=executable, metavar='ARXPATH', default="Bandizip.exe",
-        help='path to invoke un-archive files')
-    parser.add_argument("--filesystem_latency", type=float, metavar='FSLAT', default=0.01,
-        help='time to wait after filesystem operation like mkdir')
-    parser.add_argument('--retry', type=existing_readable_file, metavar='LOGFILE',
-        help='')
-    parser.add_argument('--frontq_min', type=positive_int, metavar='FQm', default=3,
+    select_options.add_argument('--player', type=executable, metavar='PLYPATH', default="mpv.exe",
+        help='path to video player executable')
+        # '--mpv mpv' resolved to 'mpv.COM' which prints some info to stdout by default, while 'mpv.exe' doesn't.
+    select_options.add_argument('--player_opt', #type=executable, metavar='PLYPATH', default="mpv.exe",
+        help='options used for video player invocation')
+    select_options.add_argument('--arx', type=executable, metavar='ARXPATH', default="bandizip.exe",
+        help='path to un-archiver executable')
+    select_options.add_argument('--arx_opt', #type=executable, metavar='ARXPATH', default="Bandizip.exe",
+        help='options used for un-archiver invocation')
+    select_options.add_argument('--frontq_min', type=positive_int, metavar='FQm', default=3,
         help='minimum # of images pre-loaded, increase if forward loading is too slow')
-    parser.add_argument('--frontq_max', type=positive_int, metavar='FQM', default=10,
+    select_options.add_argument('--frontq_max', type=positive_int, metavar='FQM', default=10,
         help='maximum # of images kept loaded when un-doing, increase if you frequently undo & redo')
-    parser.add_argument('--backq_min',  type=positive_int, metavar='BQm', default=3,
+    select_options.add_argument('--backq_min',  type=positive_int, metavar='BQm', default=3,
         help='minimum # of images loaded for un-doing, increase if backward loading is too slow')
-    parser.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
+    select_options.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
         help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
+
+    apply_options = parser.add_argument_group('apply options',
+        description='Options for "apply" subcommand. Applies group selection to the filenames and generates mapping file.')
+    apply_options.add_argument('--selections', type=Path, default=None,
+        help='path to selection dump file; uses stdin/stdout if not specified and not both "select" and "apply" are used')
+    apply_options.add_argument('--target', type=Path, default=None,
+        help='path of directory to store organized images, defaults to current directory, created if not exists')
+    apply_options.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}',
+        help="python style formatstring for moved file names, see <NAMEF> section")
+
+    commit_options = parser.add_argument_group('commit options',
+        description='Options for "commit" subcommand. Moves/Copies files as described in mapping dump.')
+    apply_options.add_argument('--mappings', type=Path, default=None,
+        help='path to mapping dump file; uses stdin/stdout if not specified and not both "select" and "apply" are used')
+    commit_options.add_argument("--filesystem_latency", type=float, metavar='FSLAT', default=0.01,
+        help='time to wait after filesystem operation like mkdir')
+    commit_options.add_argument('--keep', '--copy', dest='keep', action='store_true',
+        help="keep the original files (copy, not move)")
+    # commit_options.add_argument('--undo', action='store_true',
+    #     help="")
+
+    # parser.add_argument('--dry', '-n', dest='dry', action='store_true',
+    #     help="don't actually move files, only pretend organizing")
+    # parser.add_argument('--test_names', type=Path, nargs='*',
+    #     help='if provided, apply name_format on this filename, print then exits')
+    # parser.add_argument('--logfile', type=writable_file, default=f"topholog_{start_time:iso}.txt",
+    #     help='path to log file where unmoved file list will be written')
+    # parser.add_argument('--retry', type=existing_readable_file, metavar='LOGFILE',
+    #     help='')
 
     return parser
