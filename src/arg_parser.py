@@ -126,9 +126,9 @@ def get_parser(start_time):
         epilog='''
 QUEUE:
                 BQM  BQm                            FQm  FQM
-                /----------------------------------------`
+               /----------------------------------------`
     selected <-| .. | back queue | = | front queue | .. |<- unselected
-                `----------------------------------------/
+               `----------------------------------------/
         unloaded  |<-        loaded in memory      <-|   unloaded
                                 < 0-9 <
                                 <  r  <

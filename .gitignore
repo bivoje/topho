@@ -4,3 +4,4 @@ dist/*
 topho.spec
 topholog_*.txt
 .vscode/*
+*.json

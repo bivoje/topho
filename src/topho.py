@@ -53,7 +53,7 @@ args = get_parser(START_TIME).parse_args([
 #     else:
 #         with open(args.retry, "rt") as f:
 #             remaining, cwd, args_ = load_remainings(f)
-    
+
 #     args_.dry = args.dry
 #     args_.logfile = args.logfile.absolute()
 #     args_.filesystem_latency = args.filesystem_latency
@@ -66,7 +66,7 @@ args = get_parser(START_TIME).parse_args([
 
 #     source_dir = args_.source
 
-#     # FIXME temp_dir=None (consider source_dir is not temporary) 
+#     # FIXME temp_dir=None (consider source_dir is not temporary)
 #     # then ignored_files=[] is never used anyway and source_dir will not be removed
 #     # this is error-prone interface, need to change later
 #     organize(result, args_, source_dir, None, [], START_TIME)

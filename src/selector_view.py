@@ -146,7 +146,7 @@ class SelectorView:
         self.front_queue.quit()
         self.back_queue.quit()
 
-        back_result = self.back_queue.drain() 
+        back_result = self.back_queue.drain()
         back_result.reverse()
         front_result = self.front_queue.drain()
 

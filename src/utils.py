@@ -22,7 +22,7 @@ class DummyArgs:
         test_names = None,
         mpv = None, arx = None,
         frontq_min = None, frontq_max = None,
-        backq_min = None, backq_max = None, 
+        backq_min = None, backq_max = None,
     ):
         self.source = source
         self.target_dir = target_dir

@@ -78,7 +78,7 @@ def run_apply(args):
 
     mapping = [] # [ (src, dst) ]
     dsts = set()
-    
+
     exists = lambda path: path.exist() or path in dsts
 
     for i, (src, dir) in enumerate(selections):

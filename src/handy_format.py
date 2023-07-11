@@ -114,7 +114,7 @@ class HandyString(HandySlice):
     # bypasses parent's formatting
     def __format__(self, format_spec):
         return format(self.slc, format_spec)
-    
+
     # TODO
     # def __getattr__(self, key):
     #     if key[0] == 's':
