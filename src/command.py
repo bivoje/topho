@@ -7,6 +7,9 @@ from selector_view import SelectorView
 
 
 def run_select(source_dir, args, dummy=False):
+    if args.player is None: raise TophoError("video player not provided")
+    if args.arx    is None: raise TophoError("un-archiver not provided")
+
     if dummy: return [(Path('test_images/big/7.gif'), 1), (Path('test_images/big/8.webp'), 2), (Path('test_images/big/extra/space.jpg'), 3), (Path('test_images/big/extra/x.png'), 4), (Path('test_images/mid/4.png'), 5), (Path('test_images/mid/5.webp'), 6), (Path('test_images/mid/6.gif'), 7), (Path('test_images/small/1.png'), 8), (Path('test_images/small/2.jpg'), 9), (Path('test_images/small/3.jpg'), 0)]
 
     view = SelectorView(args.maxw, args.maxh,

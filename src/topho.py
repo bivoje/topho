@@ -11,9 +11,8 @@ START_TIME = HandyTime(datetime.now())
 #args = get_parser(START_TIME).parse_args()
 args = get_parser(START_TIME).parse_args([
     "-c=select",
-        #"--source", "test_images", #"images.zip",
+        "--source", "test_images", #"images.zip",
         "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
-        # TODO skip (default) player validity check when not used
         #"--selections", "selections1.json",
     "-c=map",
         "--target", "this/dir",

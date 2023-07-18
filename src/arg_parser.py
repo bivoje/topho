@@ -56,6 +56,7 @@ def writable_file(s):
         raise argparse.ArgumentTypeError(f"not a writable path: '{s}'")
 
 def executable(s):
+    if s is None: return None
     try:
         ss = shutil.which(s); assert ss
         path = Path(ss); assert path.exists() and not path.is_dir()
@@ -69,7 +70,12 @@ def executable(s):
 
         return path
     except:
-        raise argparse.ArgumentTypeError(f"not a valid mpv executable: '{s}'")
+        raise argparse.ArgumentTypeError(f"not a valid executable file: '{s}'")
+
+def executable_(s):
+    try: executable(s); return True
+    except argparse.ArgumentTypeError: return False
+
 
 # name format argument validator
 # Handy* formatters are statically error checked. <- run once, run always.
@@ -240,12 +246,12 @@ NAMEF formatting:
         help='maximum width of image, defaults to screen width * 0.8')
     select_options.add_argument('--maxh', type=positive_int, default=int(windll.user32.GetSystemMetrics(1)*0.8),
         help='maximum height of image, defaults to screen height * 0.8')
-    select_options.add_argument('--player', type=executable, metavar='PLYPATH', default="mpv.exe",
+    select_options.add_argument('--player', type=executable, metavar='PLYPATH', default = "mpv.exe" if executable_("mpv.exe") else None,
         help='path to video player executable')
         # '--mpv mpv' resolved to 'mpv.COM' which prints some info to stdout by default, while 'mpv.exe' doesn't.
     select_options.add_argument('--player_opt', #type=executable, metavar='PLYPATH', default="mpv.exe",
         help='options used for video player invocation')
-    select_options.add_argument('--arx', type=executable, metavar='ARXPATH', default="bandizip.exe",
+    select_options.add_argument('--arx', type=executable, metavar='ARXPATH', default = "bandizip.exe" if executable_("bandizip.exe") else None,
         help='path to un-archiver executable')
     select_options.add_argument('--arx_opt', #type=executable, metavar='ARXPATH', default="Bandizip.exe",
         help='options used for un-archiver invocation')
