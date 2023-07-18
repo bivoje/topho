@@ -57,7 +57,7 @@ def dump_mapping(f, mappings):
         "version": VERSION,
         "type": "mapping_dump",
         #"parent_dir": parent_dir,
-        "mappings": [ (str(src), str(dst)) for src, dst in mappings ],
+        "mapping": [ (str(src), str(dst)) for src, dst in mappings ],
     }
     json.dump(data, f, indent=2)
 

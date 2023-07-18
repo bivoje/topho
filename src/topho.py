@@ -1,3 +1,5 @@
+import sys
+
 import command
 from handy_format import *
 from arg_parser import get_parser
@@ -8,15 +10,15 @@ START_TIME = HandyTime(datetime.now())
 #args = get_parser(START_TIME).parse_args()
 args = get_parser(START_TIME).parse_args([
     "-c=select",
-         "--source", "test_images", #"images.zip",
-         "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
-         # TODO skip (default) player validity check when not used
-        "--selections", "selections.json",
-    "-c=apply",
+        "--source", "test_images", #"images.zip",
+        "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
+        # TODO skip (default) player validity check when not used
+        #"--selections", "selections1.json",
+    "-c=map",
         "--target", "this/dir",
         "--name_format", "{hier._1}{name}",
-        "--mappings", "mappings.json",
-    "-c=commit",
+        #"--mapping", "mapping.json",
+    # "-c=commit",
 
     # "--help",
 ])
@@ -46,48 +48,137 @@ args = get_parser(START_TIME).parse_args([
 #     sys.exit(0)
 
 
-# # %%
-# if args.retry:
-#     if args.retry == '-':
-#         remaining, cwd, args_ = load_remainings(sys.stdin)
-#     else:
-#         with open(args.retry, "rt") as f:
-#             remaining, cwd, args_ = load_remainings(f)
+def run(args):
+    cmd_flags = 0
+    for f,c in [(1, 'select'), (2, 'map'), (4, 'commit')]:
+        if c in args.command: cmd_flags |= f
 
-#     args_.dry = args.dry
-#     args_.logfile = args.logfile.absolute()
-#     args_.filesystem_latency = args.filesystem_latency
+    if cmd_flags == 0 or cmd_flags == 5:
+        print("unacceptable command sequence")
+        exit(1)
 
-#     os.chdir(cwd)
+    stdin_ignored = False
 
-#     result = []
-#     for reason, idx, dup, path, dir, note in remaining:
-#         result.append((idx, (path, dir))) # dup, reason, note ignored.
+    # RESTORE? SOURCE
+    if cmd_flags & 1:
+        stdin_ignored = True
+        if args.source:
+            # TODO implement this when cache manager become available
+            #if args.source[0] == 'dir':
+            temp_dir = None
+            arx_proc = None
+            source_dir = args.source[1]
+            # else:
+            #     temp_dir = Path(tempfile.mkdtemp(prefix=str(args.source[1]), dir='.'))
+            #     arx_proc = subprocess.Popen([str(args.arx), 'x', '-target:name', args.source[1], str(temp_dir)])
+            #     source_dir = temp_dir / args.source[1].stem
 
-#     source_dir = args_.source
+            # TODO if the source is archived, we only gain time from SelectorView loading ... can't we do better?
 
-#     # FIXME temp_dir=None (consider source_dir is not temporary)
-#     # then ignored_files=[] is never used anyway and source_dir will not be removed
-#     # this is error-prone interface, need to change later
-#     organize(result, args_, source_dir, None, [], START_TIME)
+        else:
+            # TODO implement dialog box for source
+            print("no source")
+            exit(1)
 
-#     sys.exit(0)
+    # RUN SELECT
+    if cmd_flags & 1:
+        ret = command.run_select(source_dir, args, True)
+        if ret is None: # quit while selecting
+            print("Quitting on command")
+            exit(0)
+        selections = ret
+    else:
+        selections = None
+
+    # STORE SELECT
+    if selections:
+        if args.selections:
+            f = open(args.selections, "wt")
+        elif not cmd_flags & 2:
+            f = sys.stdout
+        else:
+            f = None
+
+        if f is not None:
+            dump_selection(f, source_dir, selections)
+
+        if args.selections:
+            f.close()
+
+    # RESTORE SELECT
+    elif cmd_flags & 2:
+        if args.selections:
+            f = open(args.selections, "rt") # TODO what if fails?
+        elif not stdin_ignored:
+            f = sys.stdin
+            stdin_ignored = True
+        else:
+            print("can't restore selections")
+            exit(1)
+
+        selections_dump = load_selection(f) # TODO what if fails?
+        source_dir = Path(selections_dump["source_dir"]) # TODO do it in load_selections
+        selections = selections_dump["selections"]
+
+        if not args.selections:
+            f.close()
+
+    # TODO implement this when cache manager become available
+    # if not view.contd:
+    #     print("no commit, nothing happed!")
+    #     if temp_dir is not None:
+    #         shutil.rmtree(temp_dir)
+    #     sys.exit()
+
+    # RUN MAP
+    if cmd_flags & 2:
+        mapping = command.run_map(selections, source_dir, args)
+    else:
+        mapping = None
+
+    # STORE MAPPING
+    if mapping:
+        if args.mapping:
+            f = open(args.mapping, "wt")
+        elif not cmd_flags & 4:
+            f = sys.stdout
+        else:
+            f = None
+
+        if f is not None:
+            # TODO extract common parent wd? for readability & safety check
+            dump_mapping(f, mapping)
+
+        if args.mapping:
+            f.close()
+
+    # RESTORE MAPPING
+    elif cmd_flags & 4:
+        if args.mapping:
+            f = open(args.mapping, "rt")
+        elif not stdin_ignored:
+            f = sys.stdin
+            stdin_ignored = True
+        else:
+            print("can't restore mapping")
+            exit(1)
+
+        mapping_dump = load_mapping(f)
+        mapping = mapping_dump['mapping']
+
+        if not args.mapping:
+            f.close()
+
+    # ???
+    # TODO if source or target is empty, we query the user in GUI
+    if cmd_flags & 4 and args.target is None:
+        args.target = Path('.')
+
+    # RUN COMMIT
+    if cmd_flags & 4:
+        ret = command.run_commit(mapping, args)
+    else:
+        ret = None
 
 
-# TODO if source or target is empty, we query the user in GUI
-if args.target is None:
-    args.target = Path('.')
-
-
-if 'select' in args.command:
-    # TODO implement this when piping ochestration implemented
-    #piping_selections = args.selections is None and 'apply' in args.command
-    #should_continue, selections = command.run_select(args, not piping_selections)
-    command.run_select(args)
-    #if not should_continue: exit(0)
-
-if 'apply' in args.command:
-    command.run_apply(args)
-
-if 'commit' in args.command:
-    command.run_commit(args)
+run(args)

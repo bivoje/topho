@@ -228,13 +228,13 @@ NAMEF formatting:
     parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}',
         help="if specified, shows program's version number and exit ignoring any other commands")
 
-    parser.add_argument('-c', choices=['select','apply','commit'], action='append', metavar="COMMAND", dest="command",
-        help='subcommand to execute, one of "select", "apply", "commit"')
+    parser.add_argument('-c', choices=['select','map','commit'], action='append', metavar="COMMAND", dest="command",
+        help='subcommand to execute, one of "select", "map", "commit"')
 
     select_options = parser.add_argument_group('select options',
         description='Options for "select" subcommand. Lets user to select groups for each images found in SOURCE. '
                   + 'Then generates selection dump file')
-    select_options.add_argument('--source', type=existing_directory_or_archive, required=True,
+    select_options.add_argument('--source', type=existing_directory_or_archive,
         help='path of image directory to organize or an archive file')
     select_options.add_argument('--maxw', type=positive_int, default=int(windll.user32.GetSystemMetrics(0)*0.8),
         help='maximum width of image, defaults to screen width * 0.8')
@@ -258,19 +258,19 @@ NAMEF formatting:
     select_options.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
         help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
 
-    apply_options = parser.add_argument_group('apply options',
-        description='Options for "apply" subcommand. Applies group selection to the filenames and generates mapping file.')
-    apply_options.add_argument('--selections', type=Path, default=None,
-        help='path to selection dump file; uses stdin/stdout if not specified and not both "select" and "apply" are used')
-    apply_options.add_argument('--target', type=Path, default=None,
+    map_options = parser.add_argument_group('map options',
+        description='Options for "map" subcommand. Applies group selection to the filenames and generates mapping file.')
+    map_options.add_argument('--selections', type=Path, default=None,
+        help='path to selection dump file; uses stdin/stdout if not specified and not both "select" and "map" are used')
+    map_options.add_argument('--target', type=Path, default=None,
         help='path of directory to store organized images, defaults to current directory, created if not exists')
-    apply_options.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}',
+    map_options.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}',
         help="python style formatstring for moved file names, see <NAMEF> section")
 
     commit_options = parser.add_argument_group('commit options',
         description='Options for "commit" subcommand. Moves/Copies files as described in mapping dump.')
-    apply_options.add_argument('--mappings', type=Path, default=None,
-        help='path to mapping dump file; uses stdin/stdout if not specified and not both "select" and "apply" are used')
+    commit_options.add_argument('--mapping', type=Path, default=None,
+        help='path to mapping dump file; uses stdin/stdout if not specified and not both "select" and "map" are used')
     commit_options.add_argument("--filesystem_latency", type=float, metavar='FSLAT', default=0.01,
         help='time to wait after filesystem operation like mkdir')
     commit_options.add_argument('--keep', '--copy', dest='keep', action='store_true',
@@ -281,7 +281,7 @@ NAMEF formatting:
     # parser.add_argument('--dry', '-n', dest='dry', action='store_true',
     #     help="don't actually move files, only pretend organizing")
     # parser.add_argument('--test_names', type=Path, nargs='*',
-    #     help='if provided, apply name_format on this filename, print then exits')
+    #     help='if provided, map name_format on this filename, print then exits')
     # parser.add_argument('--logfile', type=writable_file, default=f"topholog_{start_time:iso}.txt",
     #     help='path to log file where unmoved file list will be written')
     # parser.add_argument('--retry', type=existing_readable_file, metavar='LOGFILE',

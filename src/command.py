@@ -5,19 +5,9 @@ import sys
 from misc import *
 from selector_view import SelectorView
 
-def run_select(args): #, should_dump): # TODO implement this when piping ochestration implemented
 
-    # TODO implement this when cache manager become available
-    #if args.source[0] == 'dir':
-    temp_dir = None
-    arx_proc = None
-    source_dir = args.source[1]
-    # else:
-    #     temp_dir = Path(tempfile.mkdtemp(prefix=str(args.source[1]), dir='.'))
-    #     arx_proc = subprocess.Popen([str(args.arx), 'x', '-target:name', args.source[1], str(temp_dir)])
-    #     source_dir = temp_dir / args.source[1].stem
-
-    # TODO if the source is archived, we only gain time from SelectorView loading ... can't we do better?
+def run_select(source_dir, args, dummy=False):
+    if dummy: return [(Path('test_images/big/7.gif'), 1), (Path('test_images/big/8.webp'), 2), (Path('test_images/big/extra/space.jpg'), 3), (Path('test_images/big/extra/x.png'), 4), (Path('test_images/mid/4.png'), 5), (Path('test_images/mid/5.webp'), 6), (Path('test_images/mid/6.gif'), 7), (Path('test_images/small/1.png'), 8), (Path('test_images/small/2.jpg'), 9), (Path('test_images/small/3.jpg'), 0)]
 
     view = SelectorView(args.maxw, args.maxh,
         #lambda path: subprocess.Popen([str(args.player), "--loop=inf", str(path)]).wait(), # FIXME waiting prevents the program from updating image
@@ -47,34 +37,13 @@ def run_select(args): #, should_dump): # TODO implement this when piping ochestr
     view.load(supported_files, (args.frontq_min, args.frontq_max, args.backq_min, args.backq_max))
     selections = view.run()
 
-    # TODO implement this when piping ochestration implemented
-    #if should_dump:
-    #    if args.selections is not None:
-    f = open(args.selections, "wt")
-    #    else:
-    #        f = sys.stdout
+    return selections if view.contd else None
 
-    dump_selection(f, source_dir, selections)
-    f.close()
-
-    # FIXME
-    if not view.contd:
-        print("no commit, nothing happed!")
-        if temp_dir is not None:
-            shutil.rmtree(temp_dir)
-        sys.exit()
-
-    return # view.contd, selections # TODO implement this when piping ochestration implemented
 
 from handy_format import format_name
 
-def run_apply(args):
+def run_map(selections, source_dir, args):
     trashcan_namef = "{modified}[-[{hier:]-]!}{name}_{dup}"
-
-    with open(args.selections, "rt") as f: # TODO what if fails?
-        selections_dump = load_selection(f)
-    source_dir = Path(selections_dump["source_dir"]) # TODO do it in load_selections
-    selections = selections_dump["selections"]
 
     mapping = [] # [ (src, dst) ]
     dsts = set()
@@ -95,11 +64,7 @@ def run_apply(args):
         mapping.append((src,dst))
         dsts.add(dst)
 
-    f = open(args.mappings, "wt")
-
-    # TODO extract common parent wd? for readability & safety check
-    dump_mapping(f, mapping)
-    f.close()
+    return mapping
 
 
 import shutil
@@ -129,14 +94,10 @@ def try_rmdir_rec(root):
     try: root.rmdir()
     except OSError: pass
 
-def run_commit(args):
+def run_commit(mapping, args):
 #def organize(result, args, source_dir, temp_dir, ignored_files, START_TIME):
     temp_dir, source_dir, ignored_files = None, None, []
 
-    with open(args.mappings, "rt") as f:
-        mappings_dump = load_mapping(f)
-
-    mappings = mappings_dump['mappings']
 
     target_created_root = args.target
     while target_created_root != Path('.') and not target_created_root.parent.exists():
@@ -163,7 +124,7 @@ def run_commit(args):
     skipped = []
 
     # FIXME i keeps increasing for skippedd, trashcaned, remaining files
-    for src, dst in mappings:
+    for src, dst in mapping:
         if not src.exists():
             remaining.append(('MISSING', src))
             continue
@@ -193,7 +154,7 @@ def run_commit(args):
         print("Remainings!")
         print(remaining)
     else:
-        print(f"All {len(mappings)} files have been {'copied' if args.keep else 'moved'} properly.")
+        print(f"All {len(mapping)} files have been {'copied' if args.keep else 'moved'} properly.")
 
     # remove and restore dst_dir if possible
     try_rmdir_rec(args.target)
