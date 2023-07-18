@@ -19,6 +19,9 @@ ARXIV_EXTS = set([
     "egg",
 ])
 
+class TophoError(Exception):
+    pass
+
 from pathlib import Path
 SCRIPTDIR = Path(__file__).parent
 

@@ -4,13 +4,14 @@ import command
 from handy_format import *
 from arg_parser import get_parser
 from utils import *
+from misc import TophoError
 
 START_TIME = HandyTime(datetime.now())
 
 #args = get_parser(START_TIME).parse_args()
 args = get_parser(START_TIME).parse_args([
     "-c=select",
-        "--source", "test_images", #"images.zip",
+        #"--source", "test_images", #"images.zip",
         "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
         # TODO skip (default) player validity check when not used
         #"--selections", "selections1.json",
@@ -54,8 +55,7 @@ def run(args):
         if c in args.command: cmd_flags |= f
 
     if cmd_flags == 0 or cmd_flags == 5:
-        print("unacceptable command sequence")
-        exit(1)
+        raise TophoError("unacceptable command sequence")
 
     stdin_ignored = False
 
@@ -77,15 +77,13 @@ def run(args):
 
         else:
             # TODO implement dialog box for source
-            print("no source")
-            exit(1)
+            raise TophoError("no source")
 
     # RUN SELECT
     if cmd_flags & 1:
         ret = command.run_select(source_dir, args, True)
         if ret is None: # quit while selecting
-            print("Quitting on command")
-            exit(0)
+            raise TophoError("Quitting on command")
         selections = ret
     else:
         selections = None
@@ -113,8 +111,7 @@ def run(args):
             f = sys.stdin
             stdin_ignored = True
         else:
-            print("can't restore selections")
-            exit(1)
+            raise TophoError("can't restore selections")
 
         selections_dump = load_selection(f) # TODO what if fails?
         source_dir = Path(selections_dump["source_dir"]) # TODO do it in load_selections
@@ -160,8 +157,7 @@ def run(args):
             f = sys.stdin
             stdin_ignored = True
         else:
-            print("can't restore mapping")
-            exit(1)
+            raise TophoError("can't restore mapping")
 
         mapping_dump = load_mapping(f)
         mapping = mapping_dump['mapping']
@@ -181,4 +177,8 @@ def run(args):
         ret = None
 
 
-run(args)
+try:
+    run(args)
+except TophoError as e:
+    print(f"topho: {e}")
+    exit(1)
