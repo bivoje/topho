@@ -59,6 +59,7 @@ def run(args):
     stdin_ignored = False
 
     # RESTORE? SOURCE
+    source_dir = None
     if cmd_flags & 1:
         stdin_ignored = True
         if args.source:
@@ -100,6 +101,7 @@ def run(args):
             dump_selection(f, source_dir, selections)
 
         if args.selections:
+            assert(f)
             f.close()
 
     # RESTORE SELECT
@@ -146,6 +148,7 @@ def run(args):
             dump_mapping(f, mapping)
 
         if args.mapping:
+            assert(f)
             f.close()
 
     # RESTORE MAPPING

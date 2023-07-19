@@ -1,4 +1,4 @@
-from tkinter import *
+import tkinter
 
 from misc import *
 from loading_queue import ImageLoadingQueue
@@ -9,7 +9,7 @@ class SelectorView:
         self.maxh = maxh
         self.run_player = run_player
 
-        self.root = Tk()
+        self.root = tkinter.Tk()
         self.root.title(f"Topho {VERSION}")
 
         # FIXME for some reason, can't load image from the main thread... :/
@@ -20,7 +20,7 @@ class SelectorView:
         self.video_img   = load_tk_image(STATIC/'video.png',        self.maxw, self.maxh)
         self.start_img   = load_tk_image(STATIC/'start.png',        self.maxw, self.maxh)
         self.end_img     = load_tk_image(STATIC/'end.png',          self.maxw, self.maxh)
-        self.lab = Label(image=self.start_img)
+        self.lab = tkinter.Label(image=self.start_img)
         self.lab.grid(row=0,column=1,columnspan=3)
 
         self.last_key = None
@@ -57,7 +57,7 @@ class SelectorView:
             img = self.broken_img
         elif img == 'video':
             img = self.video_img
-            self.run_player(ret[1])
+            self.run_player(ret[1]) # type: ignore
 
         self.lab.config(image=img)
         self.lab.grid(row=0,column=1,columnspan=3)
