@@ -14,14 +14,14 @@ START_TIME = HandyTime(datetime.now(timezone.utc).astimezone())
 
 #args = get_parser(START_TIME).parse_args()
 args = get_parser(START_TIME).parse_args([
-    "-c=select",
-        "--source", "images.zip",
-        "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
-        "--selections", "selections1.json",
-    # "-c=map",
+    # "-c=select",
+    #     "--source", "topho\\images.zip",
+    #     "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
+         "--selections", "selections1.json",
+     "-c=map",
     #     "--target", "this/dir",
-    #     "--name_format", "{hier._1}{name}",
-        #"--mapping", "mapping.json",
+        "--name_format", "{hier._1}{name}",
+        "--mapping", "mapping1.json",
     # "-c=commit",
 
     # "--help",
@@ -62,18 +62,19 @@ def run(args):
 
     stdin_ignored = False
 
-    if cmd_flags & 1 and not args.source:
+    # query missing source
+    if cmd_flags & 1 and args.source is None:
         sel = tkinter.simpledialog.SimpleDialog(None, text="choose source type", buttons=["archive", "directory"], title="source type").go()
         if sel == 0:
             src = tkinter.filedialog.askopenfilename(
-                initialdir="/", title="Select an archived file",
+                initialdir="/", title="Select a source archived file",
                 filetypes=(("archive files", ' '.join('.'+ext for ext in ARXIV_EXTS)), ("all files", "*.*")),
             )
             srct = 'arx'
 
         else:
             src = tkinter.filedialog.askdirectory(
-                initialdir="/", title="Select a directory",
+                initialdir="/", title="Select a source directory",
                 mustexist=True,
             )
             srct = 'dir'
@@ -82,6 +83,17 @@ def run(args):
             TophoError("Quitting on command - no source")
 
         args.source = (srct, Path(src))
+
+    # query missing target
+    if cmd_flags & 2 and args.target is None:
+        dst = tkinter.filedialog.askdirectory(
+            initialdir="/", title="Select a target directory",
+            mustexist=True,
+        )
+        args.target = Path(dst)
+
+        print(args.target)
+
 
     # RESTORE? SOURCE
     source_dir = None
@@ -180,11 +192,6 @@ def run(args):
 
         if not args.mapping:
             f.close()
-
-    # ???
-    # TODO if source or target is empty, we query the user in GUI
-    if cmd_flags & 4 and args.target is None:
-        args.target = Path('.')
 
     # RUN COMMIT
     if cmd_flags & 4:
