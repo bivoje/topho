@@ -46,31 +46,115 @@ def load_tk_image(path, maxw, maxh):
 
 import json
 def dump_selection(f, source_dir, selections):
-    data = {
-        # TODO FYI fields; no. images, no. ignored, no. NA, no. trashed
-        "info": "https://github.com/bivoje/topho",
-        "version": VERSION,
-        "type": "selection_dump",
-        "working_dir": str(Path.cwd()),
-        "source_dir": str(source_dir),
-        #"sort_by": ...
-        "selections": [ (str(path), sel) for path, sel in selections ],
-    }
-    json.dump(data, f, indent=2)
+    encode = json.JSONEncoder().encode
 
-def load_selection(f): return json.load(f) # TODO handle json error in case the user edited it wrongly
+    # using custom json encoding; faster, neater
+    f.write('{\n')
+    f.write(f'  "info": "https://github.com/bivoje/topho",\n')
+    f.write(f'  "version": "{VERSION}",\n')
+    f.write(f'  "type": "selection_dump",\n')
+    f.write(f'  "working_dir": {encode(str(Path.cwd()))},\n')
+    f.write(f'  "source_dir": {encode(str(source_dir))},\n')
+    #f.write(f'  "sort_by": ...,\n')
+    # TODO FYI fields; no. images, no. ignored, no. NA, no. trashed
+    # TODO remove source_dir from path
+
+    f.write(f'  "selections": [\n')
+    for i, (path, sel) in enumerate(selections):
+        if i > 0: f.write(',\n')
+        f.write(f'    [ {sel},\t{encode(str(path))} ]')
+    f.write(f'\n  ]\n')
+    f.write('}\n')
+
+def load_selection(f):
+    try:
+        dump = json.load(f)
+    except json.decoder.JSONDecodeError as e:
+        raise TophoError(f'JSON error in selections file: {e}')
+
+    for x in ['version', 'type', 'source_dir', "selections"]:
+        if x not in dump:
+            raise TophoError(f"'{x}' not specified in selections dump")
+
+    data = {}
+
+    if dump['version'] != VERSION:
+        raise TophoError(f"version mismatch ({dump['version']}); should be {VERSION}")
+
+    if dump['type'] != 'selection_dump':
+        raise TophoError(f"Wrong 'type' ({dump['type']}) for selections dump")
+
+    try:
+        data['source_dir'] = Path(dump['source_dir'])
+    except:
+        raise TophoError(f"Malformed 'source_dir' ({dump['source_dir']}) in selections dump")
+
+    if not isinstance(dump['selections'], list):
+        raise TophoError("'selections' is not iterable in selections dump")
+    data['selections'] = []
+
+    for i, row in enumerate(dump['selections']):
+        try:
+            (sel, path) = row
+            data['selections'].append((Path(path), int(sel)))
+        except:
+            TophoError(f"Malformed in {i}'th selection ({row}) in selections dump")
+
+    return data
+
 
 def dump_mapping(f, mappings):
-    data = {
-        "info": "https://github.com/bivoje/topho",
-        "version": VERSION,
-        "type": "mapping_dump",
-        #"parent_dir": parent_dir,
-        "mapping": [ (str(src), str(dst)) for src, dst in mappings ],
-    }
-    json.dump(data, f, indent=2)
+    encode = json.JSONEncoder().encode
 
-def load_mapping(f): return json.load(f) # TODO handle json error in case the user edited it wrongly
+    # using custom json encoding; faster, neater
+    f.write('{\n')
+    f.write(f'  "info": "https://github.com/bivoje/topho",\n')
+    f.write(f'  "version": "{VERSION}",\n')
+    f.write(f'  "type": "mapping_dump",\n')
+    #f.write(f'  "parent_dir": ...,\n')
+
+    f.write(f'  "mapping": [\n')
+    for i, (src, dst) in enumerate(mappings):
+        if i > 0: f.write(',\n')
+        f.write(f'    [ {encode(str(src))},\t{encode(str(dst))} ]')
+    f.write(f'\n  ]\n')
+    f.write('}\n')
+
+def load_mapping(f):
+    try:
+        dump = json.load(f)
+    except json.decoder.JSONDecodeError as e:
+        raise TophoError(f'JSON error in selections file: {e}')
+
+    for x in ['version', 'type', 'mapping']:
+        if x not in dump:
+            raise TophoError(f"'{x}' not specified in mapping dump")
+
+    data = {}
+
+    if dump['version'] != VERSION:
+        raise TophoError(f"version mismatch ({dump['version']}); should be {VERSION}")
+
+    if dump['type'] != 'mapping_dump':
+        raise TophoError(f"Wrong 'type' ({dump['type']}) for mapping dump")
+
+    # try:
+    #     data['parent_dir'] = Path(dump['parent_dir'])
+    # except:
+    #     raise TophoError(f"Malformed 'parent_dir' ({dump['parent_dir']}) in mapping dump")
+
+    if not isinstance(dump['mapping'], list):
+        raise TophoError("'mapping' is not iterable in mapping dump")
+    data['mapping'] = []
+
+    for i, row in enumerate(dump['mapping']):
+        try:
+            (src, dst) = row
+            data['mapping'].append((Path(src), Path(dst)))
+        except:
+            raise TophoError(f"Malformed in {i}'th selection ({row}) in mapping dump")
+
+    return data
 
 
 from handy_format import HandyTime

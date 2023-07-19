@@ -10,6 +10,8 @@ from misc import TophoError
 
 START_TIME = HandyTime(datetime.now(timezone.utc).astimezone())
 
+# TODO selector_view shortcut to find "next unselected"
+
 #args = get_parser(START_TIME).parse_args()
 args = get_parser(START_TIME).parse_args([
     "-c=select",
@@ -80,7 +82,6 @@ def run(args):
             TophoError("Quitting on command - no source")
 
         args.source = (srct, Path(src))
-    # TODO if not args.target
 
     # RESTORE? SOURCE
     source_dir = None
@@ -111,7 +112,7 @@ def run(args):
             f = None
 
         if f is not None:
-            dump_selection(f, source_dir, selections)
+            dump_selection(f, source_dir, selections) # TODO what if fails?
 
         if args.selections:
             assert(f)
@@ -128,7 +129,7 @@ def run(args):
             raise TophoError("can't restore selections")
 
         selections_dump = load_selection(f) # TODO what if fails?
-        source_dir = Path(selections_dump["source_dir"]) # TODO do it in load_selections
+        source_dir = selections_dump["source_dir"]
         selections = selections_dump["selections"]
 
         if not args.selections:

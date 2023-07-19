@@ -52,8 +52,8 @@ def run_map(selections, source_dir, args):
     exists = lambda path: path.exist() or path in dsts
 
     for i, (src, dir) in enumerate(selections):
-        src = Path(src) # TODO do it in load_selections
-        # if dir is None: # skipped files
+        pass
+        # TODO if dir is None: # skipped files
         #     skipped.append(dir)
         #     continue
 
