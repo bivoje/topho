@@ -16,14 +16,14 @@ def positive_int(s):
 
 def existing_directory(s):
     try:
-        path = Path(s)
+        path = Path(s).resolve()
         assert path.exists() and path.is_dir()
         return path
     except:
         raise argparse.ArgumentTypeError(f"non existing directory: '{s}'")
 
 def existing_directory_or_archive(s):
-    path = Path(s)
+    path = Path(s).resolve()
     if not path.exists():
         raise argparse.ArgumentTypeError(f"non existing source: '{s}'")
 
@@ -38,7 +38,7 @@ def existing_directory_or_archive(s):
 def existing_readable_file(s):
     if s == '-': return '-'
     try:
-        path = Path(s)
+        path = Path(s).resolve()
         assert not path.is_dir()
         assert path.exists() and os.access(s, os.R_OK)
         return path
@@ -48,7 +48,7 @@ def existing_readable_file(s):
 def writable_file(s):
     if s == '-': return '-'
     try:
-        path = Path(s)
+        path = Path(s).resolve()
         assert not path.is_dir()
         assert not path.exists() or os.access(s, os.W_OK)
         return path
@@ -267,9 +267,9 @@ NAMEF formatting:
 
     map_options = parser.add_argument_group('map options',
         description='Options for "map" subcommand. Applies group selection to the filenames and generates mapping file.')
-    map_options.add_argument('--selections', type=Path, default=None,
+    map_options.add_argument('--selections', type=lambda s: Path(s).resolve(), default=None,
         help='path to selection dump file; uses stdin/stdout if not specified and not both "select" and "map" are used')
-    map_options.add_argument('--target', type=Path, default=None,
+    map_options.add_argument('--target', type=lambda s: Path(s).resolve(), default=None,
         help='path of directory to store organized images, defaults to current directory, created if not exists')
     map_options.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}',
         help="python style formatstring for moved file names, see <NAMEF> section")

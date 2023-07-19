@@ -25,6 +25,11 @@ class TophoError(Exception):
 from pathlib import Path
 SCRIPTDIR = Path(__file__).parent
 
+DEBUG = True
+
+def debug(*args, **kargs):
+    if DEBUG: print("topho_debug:", *args, **kargs)
+
 
 import PIL.Image
 import PIL.ImageTk
@@ -81,23 +86,26 @@ def get_cachedir(arxfile, arx, START_TIME):
     name = arxfile.stem[:100]
 
     for cachedir in arxfile.parent.glob(f"tempho_*_{name}"):
+        debug(f"visiting cached dir {cachedir}")
+
         infofile = cachedir / "tempho_info.json"
         if not infofile.exists() or infofile.is_dir() or not os.access(infofile, os.R_OK): continue
-
         with open(infofile, "r") as f:
             info = json.load(f)
 
         if info['file_path'] != str(arxfile): continue
-
         filetime = datetime.strptime(info['file_time'], "%Y-%m-%dT%H-%M-%S%z")
+        debug(f"cachedir timediff {time:iso} - {filetime}")
+
         if abs((time.datetime-filetime).total_seconds()) > 1: # outdated cache
             shutil.rmtree(cachedir) # FIXME what if other file is mapping file is still using this directory??
             continue
 
+        debug(f"using cached dir {cachedir}")
         return cachedir # found
 
     # no previous cache found, create new one
-    cachedir = Path(f"tempho_{START_TIME:%Y%m%d-%H%M%S}_{name}")
+    cachedir = arxfile.parent / f"tempho_{START_TIME:%Y%m%d-%H%M%S}_{name}"
     command = [str(arx), 'x', '-target:auto', '-y', '-o:'+str(cachedir), str(arxfile)]
     arx_proc = subprocess.Popen(command)
     if 0 != arx_proc.wait(): raise TophoError(f"Unarchive command failed: {command}")
@@ -114,4 +122,5 @@ def get_cachedir(arxfile, arx, START_TIME):
         }
         json.dump(data, f, indent=2) # FIXME what if fail
 
+    debug(f"created cache dir {cachedir}")
     return cachedir

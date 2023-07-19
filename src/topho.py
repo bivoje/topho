@@ -60,7 +60,7 @@ def run(args):
 
     stdin_ignored = False
 
-    if not args.source:
+    if cmd_flags & 1 and not args.source:
         sel = tkinter.simpledialog.SimpleDialog(None, text="choose source type", buttons=["archive", "directory"], title="source type").go()
         if sel == 0:
             src = tkinter.filedialog.askopenfilename(
