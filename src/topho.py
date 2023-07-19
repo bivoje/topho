@@ -184,3 +184,4 @@ try:
 except TophoError as e:
     print(f"topho: {e}")
     exit(1)
+    # TODO store selections or mappings before exiting when not stored (e.g. dup while commit, etc) -> automatically uses the most recent one when --continue-from arg is omitted

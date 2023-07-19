@@ -242,6 +242,7 @@ NAMEF formatting:
                   + 'Then generates selection dump file')
     select_options.add_argument('--source', type=existing_directory_or_archive,
         help='path of image directory to organize or an archive file')
+    #select_options.add_argument('--continue_from', type=Path, default=None, # TODO
     select_options.add_argument('--maxw', type=positive_int, default=int(windll.user32.GetSystemMetrics(0)*0.8),
         help='maximum width of image, defaults to screen width * 0.8')
     select_options.add_argument('--maxh', type=positive_int, default=int(windll.user32.GetSystemMetrics(1)*0.8),
@@ -272,6 +273,7 @@ NAMEF formatting:
         help='path of directory to store organized images, defaults to current directory, created if not exists')
     map_options.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}',
         help="python style formatstring for moved file names, see <NAMEF> section")
+    # TODO configurable 0-9 directories
 
     commit_options = parser.add_argument_group('commit options',
         description='Options for "commit" subcommand. Moves/Copies files as described in mapping dump.')
@@ -288,9 +290,10 @@ NAMEF formatting:
     #     help="don't actually move files, only pretend organizing")
     # parser.add_argument('--test_names', type=Path, nargs='*',
     #     help='if provided, map name_format on this filename, print then exits')
-    # parser.add_argument('--logfile', type=writable_file, default=f"topholog_{start_time:iso}.txt",
+    # parser.add_argument('--logfile', type=writable_file, default=f"topholog_{start_time:iso}.txt", # better be memorable names, like zealous_frog
     #     help='path to log file where unmoved file list will be written')
     # parser.add_argument('--retry', type=existing_readable_file, metavar='LOGFILE',
     #     help='')
 
+    # TODO --regard {mapping.json} for map command for when commit is failed & renumbering duplication is needed? <- what about dinamically ask for it?
     return parser

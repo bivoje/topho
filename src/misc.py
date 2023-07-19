@@ -42,6 +42,7 @@ def load_tk_image(path, maxw, maxh):
 import json
 def dump_selection(f, source_dir, selections):
     data = {
+        # TODO FYI fields; no. images, no. ignored, no. NA, no. trashed
         "info": "https://github.com/bivoje/topho",
         "version": VERSION,
         "type": "selection_dump",

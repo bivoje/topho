@@ -115,7 +115,7 @@ class HandyString(HandySlice):
     def __format__(self, format_spec):
         return format(self.slc, format_spec)
 
-    # TODO
+    # TODO split, replace
     # def __getattr__(self, key):
     #     if key[0] == 's':
     #         split()
