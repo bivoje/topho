@@ -1,8 +1,6 @@
 import sys
 import tkinter.filedialog
 import tkinter.simpledialog
-import subprocess
-import tempfile
 
 import command
 from handy_format import *
@@ -10,17 +8,17 @@ from arg_parser import get_parser
 from utils import *
 from misc import TophoError
 
-START_TIME = HandyTime(datetime.now())
+START_TIME = HandyTime(datetime.now(timezone.utc).astimezone())
 
 #args = get_parser(START_TIME).parse_args()
 args = get_parser(START_TIME).parse_args([
     "-c=select",
-        #"--source", "test_images", #"images.zip",
+        "--source", "images.zip",
         "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
-        #"--selections", "selections1.json",
-    "-c=map",
-        "--target", "this/dir",
-        "--name_format", "{hier._1}{name}",
+        "--selections", "selections1.json",
+    # "-c=map",
+    #     "--target", "this/dir",
+    #     "--name_format", "{hier._1}{name}",
         #"--mapping", "mapping.json",
     # "-c=commit",
 
@@ -88,22 +86,11 @@ def run(args):
     source_dir = None
     if cmd_flags & 1:
         stdin_ignored = True
-        if args.source:
-            # TODO implement this when cache manager become available
-            #if args.source[0] == 'dir':
-            temp_dir = None
-            arx_proc = None
+
+        if args.source[0] == 'dir':
             source_dir = args.source[1]
-            # else:
-            #     temp_dir = Path(tempfile.mkdtemp(prefix=str(args.source[1]), dir='.'))
-            #     arx_proc = subprocess.Popen([str(args.arx), 'x', '-target:name', args.source[1], str(temp_dir)])
-            #     source_dir = temp_dir / args.source[1].stem
-
-            # TODO if the source is archived, we only gain time from SelectorView loading ... can't we do better?
-
         else:
-            # TODO implement dialog box for source
-            raise TophoError("no source")
+            source_dir = get_cachedir(args.source[1], args.arx, START_TIME)
 
     # RUN SELECT
     if cmd_flags & 1:
@@ -204,6 +191,7 @@ def run(args):
     else:
         ret = None
 
+    # TODO remove source_dir if it was cache && the orig archive
 
 try:
     run(args)

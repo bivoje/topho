@@ -66,3 +66,52 @@ def dump_mapping(f, mappings):
     json.dump(data, f, indent=2)
 
 def load_mapping(f): return json.load(f) # TODO handle json error in case the user edited it wrongly
+
+
+from handy_format import HandyTime
+from datetime import datetime
+import subprocess
+import shutil
+import os
+
+from datetime import timedelta
+
+def get_cachedir(arxfile, arx, START_TIME):
+    time = HandyTime(datetime.fromtimestamp(os.path.getmtime(arxfile)).astimezone())
+    name = arxfile.stem[:100]
+
+    for cachedir in arxfile.parent.glob(f"tempho_*_{name}"):
+        infofile = cachedir / "tempho_info.json"
+        if not infofile.exists() or infofile.is_dir() or not os.access(infofile, os.R_OK): continue
+
+        with open(infofile, "r") as f:
+            info = json.load(f)
+
+        if info['file_path'] != str(arxfile): continue
+
+        filetime = datetime.strptime(info['file_time'], "%Y-%m-%dT%H-%M-%S%z")
+        if abs((time.datetime-filetime).total_seconds()) > 1: # outdated cache
+            shutil.rmtree(cachedir) # FIXME what if other file is mapping file is still using this directory??
+            continue
+
+        return cachedir # found
+
+    # no previous cache found, create new one
+    cachedir = Path(f"tempho_{START_TIME:%Y%m%d-%H%M%S}_{name}")
+    command = [str(arx), 'x', '-target:auto', '-y', '-o:'+str(cachedir), str(arxfile)]
+    arx_proc = subprocess.Popen(command)
+    if 0 != arx_proc.wait(): raise TophoError(f"Unarchive command failed: {command}")
+    # TODO can we gain time here??
+
+    infofile = cachedir / "tempho_info.json"
+    if infofile.exists(): raise TophoError(f"Cannot create infofile: {infofile}")
+
+    with open(infofile, "w") as f:
+        data = {
+            'file_path': str(arxfile),
+            'file_time': f"{time:iso}",
+            'cache_date': f"{START_TIME:iso}",
+        }
+        json.dump(data, f, indent=2) # FIXME what if fail
+
+    return cachedir
