@@ -1,4 +1,8 @@
 import sys
+import tkinter.filedialog
+import tkinter.simpledialog
+import subprocess
+import tempfile
 
 import command
 from handy_format import *
@@ -11,7 +15,7 @@ START_TIME = HandyTime(datetime.now())
 #args = get_parser(START_TIME).parse_args()
 args = get_parser(START_TIME).parse_args([
     "-c=select",
-        "--source", "test_images", #"images.zip",
+        #"--source", "test_images", #"images.zip",
         "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
         #"--selections", "selections1.json",
     "-c=map",
@@ -57,6 +61,28 @@ def run(args):
         raise TophoError("unacceptable command sequence")
 
     stdin_ignored = False
+
+    if not args.source:
+        sel = tkinter.simpledialog.SimpleDialog(None, text="choose source type", buttons=["archive", "directory"], title="source type").go()
+        if sel == 0:
+            src = tkinter.filedialog.askopenfilename(
+                initialdir="/", title="Select an archived file",
+                filetypes=(("archive files", ' '.join('.'+ext for ext in ARXIV_EXTS)), ("all files", "*.*")),
+            )
+            srct = 'arx'
+
+        else:
+            src = tkinter.filedialog.askdirectory(
+                initialdir="/", title="Select a directory",
+                mustexist=True,
+            )
+            srct = 'dir'
+
+        if src == '': # canceled
+            TophoError("Quitting on command - no source")
+
+        args.source = (srct, Path(src))
+    # TODO if not args.target
 
     # RESTORE? SOURCE
     source_dir = None

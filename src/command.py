@@ -1,6 +1,4 @@
 import subprocess
-import tempfile
-import sys
 
 from misc import *
 from selector_view import SelectorView
@@ -72,7 +70,7 @@ def run_map(selections, source_dir, args):
 
 import shutil
 from time import sleep
-#import tempfile
+import tempfile
 import os
 
 def leave_crumbs(root, prefix='crumb'):
