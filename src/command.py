@@ -36,31 +36,34 @@ def run_select(source_dir, args, dummy=False):
     if dummy: return [ (p, i%10) for i, p in enumerate(supported_files) ]
 
     view.load(supported_files, (args.frontq_min, args.frontq_max, args.backq_min, args.backq_max))
-    selections = view.run()
+
+    selections = []
+    for (path, sel) in view.run():
+        assert str(path).startswith(str(source_dir))
+        path = str(path)[len(str(source_dir))+1:]
+        selections.append((path, sel))
 
     return selections if view.contd else None
 
 
 from handy_format import format_name
 
-def run_map(selections, source_dir, args):
+def run_map(selections, source_dir, target_dir, name_format):
     trashcan_namef = "{modified}[-[{hier:]-]!}{name}_{dup}"
+    assert not target_dir.exists() or target_dir.is_dir()
 
     mapping = [] # [ (src, dst) ]
     dsts = set()
 
-    exists = lambda path: path.exist() or path in dsts
+    exists = lambda path: (target_dir / path).exists() or path in dsts
 
     for i, (src, dir) in enumerate(selections):
-        pass
         # TODO if dir is None: # skipped files
         #     skipped.append(dir)
         #     continue
 
-        if dir == 0: # this is a trashcan
-            dst, j = format_name(trashcan_namef, i, src, source_dir, args.target/str(dir)) # exists = lambda path: check if exists in dsts
-        else:
-            dst, j = format_name(args.name_format, i, src, source_dir, args.target/str(dir))
+        namef = trashcan_namef if dir == 0 else name_format
+        dst, j = format_name(namef, i, src, dir, source_dir, exists)
 
         mapping.append((src,dst))
         dsts.add(dst)

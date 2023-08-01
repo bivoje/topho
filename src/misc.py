@@ -62,7 +62,7 @@ def dump_selection(f, source_dir, selections):
     f.write(f'  "selections": [\n')
     for i, (path, sel) in enumerate(selections):
         if i > 0: f.write(',\n')
-        f.write(f'    [ {sel},\t{encode(str(path))} ]')
+        f.write(f'    [ {sel},\t{encode(path)} ]')
     f.write(f'\n  ]\n')
     f.write('}\n')
 
@@ -103,7 +103,7 @@ def load_selection(f):
     return data
 
 
-def dump_mapping(f, mappings):
+def dump_mapping(f, mappings, source_dir, target_dir):
     encode = json.JSONEncoder().encode
 
     # using custom json encoding; faster, neater
@@ -111,7 +111,8 @@ def dump_mapping(f, mappings):
     f.write(f'  "info": "https://github.com/bivoje/topho",\n')
     f.write(f'  "version": "{VERSION}",\n')
     f.write(f'  "type": "mapping_dump",\n')
-    #f.write(f'  "parent_dir": ...,\n')
+    f.write(f'  "source_dir": {encode(str(source_dir))},\n')
+    f.write(f'  "target_dir": {encode(str(target_dir))},\n')
 
     f.write(f'  "mapping": [\n')
     for i, (src, dst) in enumerate(mappings):
@@ -126,7 +127,7 @@ def load_mapping(f):
     except json.decoder.JSONDecodeError as e:
         raise TophoError(f'JSON error in selections file: {e}')
 
-    for x in ['version', 'type', 'mapping']:
+    for x in ['version', 'type', 'mapping', 'source_dir', 'target_dir']:
         if x not in dump:
             raise TophoError(f"'{x}' not specified in mapping dump")
 
@@ -138,10 +139,15 @@ def load_mapping(f):
     if dump['type'] != 'mapping_dump':
         raise TophoError(f"Wrong 'type' ({dump['type']}) for mapping dump")
 
-    # try:
-    #     data['parent_dir'] = Path(dump['parent_dir'])
-    # except:
-    #     raise TophoError(f"Malformed 'parent_dir' ({dump['parent_dir']}) in mapping dump")
+    try:
+        data['source_dir'] = Path(dump['source_dir'])
+    except:
+        raise TophoError(f"Malformed 'source_dir' ({dump['source_dir']}) in mapping dump")
+
+    try:
+        data['target_dir'] = Path(dump['target_dir'])
+    except:
+        raise TophoError(f"Malformed 'target_dir' ({dump['target_dir']}) in mapping dump")
 
     if not isinstance(dump['mapping'], list):
         raise TophoError("'mapping' is not iterable in mapping dump")

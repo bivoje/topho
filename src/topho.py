@@ -67,33 +67,34 @@ def run(args):
         sel = tkinter.simpledialog.SimpleDialog(None, text="choose source type", buttons=["archive", "directory"], title="source type").go()
         if sel == 0:
             src = tkinter.filedialog.askopenfilename(
-                initialdir="/", title="Select a source archived file",
+                initialdir=Path.cwd(), title="Select a source archived file",
                 filetypes=(("archive files", ' '.join('.'+ext for ext in ARXIV_EXTS)), ("all files", "*.*")),
             )
             srct = 'arx'
 
         else:
             src = tkinter.filedialog.askdirectory(
-                initialdir="/", title="Select a source directory",
+                initialdir=Path.cwd(), title="Select a source directory",
                 mustexist=True,
             )
             srct = 'dir'
 
         if src == '': # canceled
-            TophoError("Quitting on command - no source")
+            raise TophoError("Quitting on command - no source")
 
         args.source = (srct, Path(src))
 
     # query missing target
     if cmd_flags & 2 and args.target is None:
         dst = tkinter.filedialog.askdirectory(
-            initialdir="/", title="Select a target directory",
+            initialdir=Path.cwd(), title="Select a target directory",
             mustexist=True,
         )
+
+        if dst == '': # canceled
+            raise TophoError("Quitting on command - no target")
+
         args.target = Path(dst)
-
-        print(args.target)
-
 
     # RESTORE? SOURCE
     source_dir = None
@@ -156,7 +157,7 @@ def run(args):
 
     # RUN MAP
     if cmd_flags & 2:
-        mapping = command.run_map(selections, source_dir, args)
+        mapping = command.run_map(selections, source_dir, args.target, args.name_format)
     else:
         mapping = None
 
@@ -170,8 +171,7 @@ def run(args):
             f = None
 
         if f is not None:
-            # TODO extract common parent wd? for readability & safety check
-            dump_mapping(f, mapping)
+            dump_mapping(f, mapping, source_dir, args.target)
 
         if args.mapping:
             assert(f)

@@ -189,36 +189,32 @@ class HermitDup(HandyInt):
         return prefix + super(HermitDup, self).__format__(spec) + suffix
 
 import os
+from pathlib import Path
 
 # source_dir must be prefix of path. (both Path object)
 # returns target path object
 format_name_lookup_cache = {}
-def format_name(formstr, index, path, source_dir, target_dir, exists=lambda p: p.exists()):
+def format_name(formstr, index, rel_path, sel, source_dir, exists=lambda p: p.exists()):
     global format_name_lookup_cache
-    #assert target_dir.exists() and target_dir.is_dir() # FIXME don't need to check when apply
-    if exists(path):
-        size = HandyInt(os.path.getsize(path)),
-        # note that windows' file explorer's 'date' has more complex method of determination
-        # if photo has no taken-time info, it usually is modified date (not created)
-        # mod date is kept unchanged when copying & moving (to other drive)
-        # https://superuser.com/a/1674290
-        created  = HandyTime(datetime.fromtimestamp(os.path.getctime(path)).astimezone())
-        modified = HandyTime(datetime.fromtimestamp(os.path.getmtime(path)).astimezone())
-        accessed = HandyTime(datetime.fromtimestamp(os.path.getatime(path)).astimezone())
-    else:
-        size = HandyInt(2**(6+index*4)),
-        created  = HandyTime(datetime.fromtimestamp(0,tz=timezone.utc).astimezone())
-        modified = HandyTime(datetime(2013,6,5,21,54,57).astimezone())
-        accessed = HandyTime(datetime(2054,6,8,4,13,26).astimezone())
+    path = source_dir / rel_path
+
+    size = HandyInt(os.path.getsize(path)),
+    # note that windows' file explorer's 'date' has more complex method of determination
+    # if photo has no taken-time info, it usually is modified date (not created)
+    # mod date is kept unchanged when copying & moving (to other drive)
+    # https://superuser.com/a/1674290
+    created  = HandyTime(datetime.fromtimestamp(os.path.getctime(path)).astimezone())
+    modified = HandyTime(datetime.fromtimestamp(os.path.getmtime(path)).astimezone())
+    accessed = HandyTime(datetime.fromtimestamp(os.path.getatime(path)).astimezone())
 
     # [:-1] to removing last '.'
     parents = list(p.name for p in path.relative_to(source_dir.parent).parents)
     hier = list(reversed(parents[:-1])) + ['']
 
-    gen = lambda dup: target_dir / (formstr.format(
+    gen = lambda dup: Path(str(sel)) / (formstr.format(
         index = HandyInt(index),
         name = HandyString(path.stem),
-        hier = HandySlice(hier, '\\'),
+        hier = HandySlice(hier, '\\'), # FIXME for unix path?
         size = size,
         created  = created,
         modified = modified,
@@ -233,7 +229,7 @@ def format_name(formstr, index, path, source_dir, target_dir, exists=lambda p: p
         return newpath0, 0
 
     if newpath0 == gen(1): # considering 'dup' is not used in formatstr.
-        # just return it (probably filename duplication error occures)
+        # just return it (probably filename duplication error occures) FIXME
         return newpath0, 1
 
     # use 1 as default as there already is one file with the name.
