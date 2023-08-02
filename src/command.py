@@ -33,12 +33,15 @@ def run_select(source_dir, args, dummy=False):
         if not path.is_dir() and not path.suffix[1:] in KNOWN_EXTS
     )
 
-    if dummy: return [ (p, i%10) for i, p in enumerate(supported_files) ]
-
-    view.load(supported_files, (args.frontq_min, args.frontq_max, args.backq_min, args.backq_max))
+    if dummy:
+        sels = [ (p, i%10) for i, p in enumerate(supported_files) ]
+        view.contd = True
+    else:
+        view.load(supported_files, (args.frontq_min, args.frontq_max, args.backq_min, args.backq_max))
+        sels = view.run()
 
     selections = []
-    for (path, sel) in view.run():
+    for (path, sel) in sels:
         assert str(path).startswith(str(source_dir))
         path = str(path)[len(str(source_dir))+1:]
         selections.append((path, sel))
@@ -73,68 +76,26 @@ def run_map(selections, source_dir, target_dir, name_format):
 
 import shutil
 from time import sleep
-import tempfile
-import os
 
-def leave_crumbs(root, prefix='crumb'):
-    #if not root.exists(): return
-    for subdir in root.glob('**/'):
-        fd, tpath = tempfile.mkstemp(dir=subdir, prefix=prefix)
-        os.close(fd)
+# no more file
+def run_commit(mapping, source_dir, target_dir, args):
+    temp_dir, ignored_files = None, []
 
-def collect_crumbs(root, prefix='crumb'):
-    for subpath in root.glob(f'**/{prefix}*'):
-        subpath.unlink()
-
-def mimic_tree(source_root, target_root):
-    for subdir in source_root.glob('**/'):
-        tubdir = target_root / subdir.relative_to(source_root)
-        tubdir.mkdir(parents=True, exist_ok=True)
-
-def try_rmdir_rec(root):
-    for subdir in filter(lambda p: p.is_dir(), root.iterdir()):
-        if not subdir.is_dir(): continue
-        try_rmdir_rec(subdir)
-    try: root.rmdir()
-    except OSError: pass
-
-def run_commit(mapping, args):
-#def organize(result, args, source_dir, temp_dir, ignored_files, START_TIME):
-    temp_dir, source_dir, ignored_files = None, None, []
-
-
-    target_created_root = args.target
-    while target_created_root != Path('.') and not target_created_root.parent.exists():
-        target_created_root = target_created_root.parent
-
-    leave_crumbs(args.target)
-    args.target.mkdir(parents=True, exist_ok=True)
-
-    dst_dirs = [] # :: [ (path, created_by_program?) ]
-
-    for i in range(10):
-        dirpath = args.target / str(i)
-        if dirpath.exists():
-            while dirpath.exists() and not dirpath.is_dir():
-                dirpath = args.target / (dirpath.name + "_")
-        if not dirpath.exists():
-            dirpath.mkdir()
-            dst_dirs.append((dirpath,True))
-        else:
-            dst_dirs.append((dirpath,False))
+    target_dir.mkdir(parents=True, exist_ok=True)
 
     # files couldn't be moved
     remaining = [] # :: [(reason, idx, dup, path, dir, note)]
     skipped = []
 
-    # FIXME i keeps increasing for skippedd, trashcaned, remaining files
-    for src, dst in mapping:
+    for src_, dst_ in mapping:
+        src, dst = source_dir / src_, target_dir / dst_
+
         if not src.exists():
-            remaining.append(('MISSING', src))
+            remaining.append(('MISSING', src_, dst_, ""))
             continue
 
         if dst.exists():
-            remaining.append(('DUP', dst))
+            remaining.append(('DUP', src_, dst_, ""))
             continue
 
         if args.dry:
@@ -142,54 +103,13 @@ def run_commit(mapping, args):
             continue
 
         try:
-            if args.keep:
-                if not dst.parent.exists():
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    sleep(args.filesystem_latency) # wait for filesystem update
-                shutil.copy2(src, dst)
-            else:
-                src.replace(dst)
-                # FIXME if target subdir not exist?
+            if not dst.parent.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                sleep(args.filesystem_latency) # wait for filesystem update
+            if args.keep: shutil.copy2(src, dst)
+            else: src.replace(dst)
 
         except OSError as e:
-            remaining.append(('OS', i, src, dst, repr(e)))
+            remaining.append(('OS', src_, dst_, repr(e)))
 
-    if remaining:
-        print("Remainings!")
-        print(remaining)
-    else:
-        print(f"All {len(mapping)} files have been {'copied' if args.keep else 'moved'} properly.")
-
-    # remove and restore dst_dir if possible
-    try_rmdir_rec(args.target)
-    collect_crumbs(args.target)
-
-    # remove created target parents if possible
-    target = args.target
-    while target_created_root != target:
-        try: target.rmdir()
-        except OSError: break
-        target = target.parent
-
-    try: target.rmdir()
-    except OSError: pass
-
-    # try removing source_dir if possible
-    # FIXME does not work if sub directory exists despite empty
-    # try: source_dir.rmdir()
-    # except OSError: pass
-
-    # remove un-archived files and possibly source
-    if temp_dir is not None:
-        if skipped or remaining or ignored_files:
-            print(f"{len(skipped) + len(remaining) + len(ignored_files)} files are still in temp dir, keeping {source_dir}")
-        else:
-            shutil.rmtree(temp_dir)
-            pass
-
-        if not args.keep:
-            args.source[1].unlink()
-
-    else:
-        if not args.keep:
-            try_rmdir_rec(source_dir)
+    return remaining

@@ -271,7 +271,7 @@ NAMEF formatting:
         help='path to selection dump file; uses stdin/stdout if not specified and not both "select" and "map" are used')
     map_options.add_argument('--target', type=lambda s: Path(s).resolve(), default=None,
         help='path of directory to store organized images, defaults to current directory, created if not exists')
-    map_options.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}',
+    map_options.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}{dup: (!)}',
         help="python style formatstring for moved file names, see <NAMEF> section")
     # TODO configurable 0-9 directories
 
@@ -283,11 +283,12 @@ NAMEF formatting:
         help='time to wait after filesystem operation like mkdir')
     commit_options.add_argument('--keep', '--copy', dest='keep', action='store_true',
         help="keep the original files (copy, not move)")
+    parser.add_argument('--dry', '-n', dest='dry', action='store_true',
+        help="don't actually move files, only pretend organizing")
     # commit_options.add_argument('--undo', action='store_true',
     #     help="")
 
-    # parser.add_argument('--dry', '-n', dest='dry', action='store_true',
-    #     help="don't actually move files, only pretend organizing")
+
     # parser.add_argument('--test_names', type=Path, nargs='*',
     #     help='if provided, map name_format on this filename, print then exits')
     # parser.add_argument('--logfile', type=writable_file, default=f"topholog_{start_time:iso}.txt", # better be memorable names, like zealous_frog

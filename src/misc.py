@@ -62,7 +62,7 @@ def dump_selection(f, source_dir, selections):
     f.write(f'  "selections": [\n')
     for i, (path, sel) in enumerate(selections):
         if i > 0: f.write(',\n')
-        f.write(f'    [ {sel},\t{encode(path)} ]')
+        f.write(f'    [ {sel},\t{encode(str(path))} ]')
     f.write(f'\n  ]\n')
     f.write('}\n')
 
@@ -161,6 +161,24 @@ def load_mapping(f):
             raise TophoError(f"Malformed in {i}'th selection ({row}) in mapping dump")
 
     return data
+
+
+def dump_remain(f, source_dir, target_dir, remaining):
+    encode = json.JSONEncoder().encode
+
+    f.write('{\n')
+    f.write(f'  "info": "https://github.com/bivoje/topho",\n')
+    f.write(f'  "version": "{VERSION}",\n')
+    f.write(f'  "type": "remain_dump",\n')
+    f.write(f'  "source_dir": {encode(str(source_dir))},\n')
+    f.write(f'  "target_dir": {encode(str(target_dir))},\n')
+
+    f.write(f'  "remain": [\n')
+    for i, (reason, src, dst, note) in enumerate(remaining):
+        if i > 0: f.write(',\n')
+        f.write(f'    [ "{reason}",\t{encode(str(src))},\t{encode(str(dst))},\t"{note}" ]')
+    f.write(f'\n  ]\n')
+    f.write('}\n')
 
 
 from handy_format import HandyTime

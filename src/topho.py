@@ -12,20 +12,20 @@ START_TIME = HandyTime(datetime.now(timezone.utc).astimezone())
 
 # TODO selector_view shortcut to find "next unselected"
 
-#args = get_parser(START_TIME).parse_args()
-args = get_parser(START_TIME).parse_args([
-    # "-c=select",
-    #     "--source", "topho\\images.zip",
-    #     "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
-         "--selections", "selections1.json",
-     "-c=map",
-    #     "--target", "this/dir",
-        "--name_format", "{hier._1}{name}",
-        "--mapping", "mapping1.json",
-    # "-c=commit",
+args = get_parser(START_TIME).parse_args()
+# args = get_parser(START_TIME).parse_args([
+#     # "-c=select",
+#     #     "--source", "topho\\images.zip",
+#     #     "--player", "C:\\Program Files\\mpv-x86_64-20230312-git-9880b06\\mpv.exe",
+#          "--selections", "selections1.json",
+#      "-c=map",
+#     #     "--target", "this/dir",
+#         "--name_format", "{hier._1}{name}",
+#         "--mapping", "mapping1.json",
+#     # "-c=commit",
 
-    # "--help",
-])
+#     # "--help",
+# ])
 
 # %%
 
@@ -189,17 +189,40 @@ def run(args):
 
         mapping_dump = load_mapping(f)
         mapping = mapping_dump['mapping']
+        source_dir = mapping_dump['source_dir']
+        args.target = mapping_dump['target_dir']
 
         if not args.mapping:
             f.close()
 
     # RUN COMMIT
     if cmd_flags & 4:
-        ret = command.run_commit(mapping, args)
+        remain = command.run_commit(mapping, source_dir, args.target, args)
     else:
-        ret = None
+        remain = None
+
+    # STORE REMAIN
+    if remain:
+        remain_path = Path(f"remain_{START_TIME:iso}.json")
+        print(f"Error! some files could not be moved. see '{remain_path.resolve()}'")
+        with open(remain_path, "wt") as f:
+            dump_remain(f, source_dir, args.target, remain)
 
     # TODO remove source_dir if it was cache && the orig archive
+    # remove un-archived files and possibly source
+    # if temp_dir is not None:
+    #     if skipped or remaining or ignored_files:
+    #         print(f"{len(skipped) + len(remaining) + len(ignored_files)} files are still in temp dir, keeping {source_dir}")
+    #     else:
+    #         shutil.rmtree(temp_dir)
+    #         pass
+
+    #     if not args.keep:
+    #         args.source[1].unlink()
+
+    # else:
+    #     if not args.keep:
+    #         try_rmdir_rec(source_dir)
 
 try:
     run(args)
