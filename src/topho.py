@@ -108,7 +108,7 @@ def run(args):
 
     # RUN SELECT
     if cmd_flags & 1:
-        ret = command.run_select(source_dir, args, True)
+        ret = command.run_select(source_dir, args)#, True)
         if ret is None: # quit while selecting
             raise TophoError("Quitting on command")
         selections, ignored = ret

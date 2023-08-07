@@ -1,4 +1,5 @@
 import tkinter
+from tkinter import messagebox
 
 from misc import *
 from loading_queue import ImageLoadingQueue
@@ -46,7 +47,7 @@ class SelectorView:
                 title = "END"
             elif not ret: # loading
                 img = self.loading_img
-                title = "LOADING" # FIXME can we do automatic refresh?
+                title = "LOADING" # TODO can we do automatic refresh?
             else:
                 img = ret[0]
                 title = ('-' if ret[2] is None else str(ret[2])) + " " + ret[1].name
@@ -64,28 +65,44 @@ class SelectorView:
         self.root.title(title)
 
 
+    KEY_BINDING_HELP = """ESC,q: quit
+SPACE:\tstart,skip
+c:\tcontinue
+r:\treload
+0-9:\tselect
+u:\tundo
+U:\tredo
+?:\thelp
+"""
+
     def key_press(self, e):
         if e.char == self.last_key and not self.key_released: return
         self.last_key, self.key_released = e.char, False
 
-        if self.last_key == '\x1b':
+        done = True
+
+        if self.last_key == '\x1b' or self.last_key == 'q':
             #print("quit")
             self.root.destroy()
-            return
 
-        if self.last_key == 'c':
+        elif self.last_key == 'c':
             #print("continue")
             self.contd = True
             self.root.destroy()
-            return
 
-        if self.last_key == ' ' and not self.started:
+        elif self.last_key == ' ' and not self.started:
             #print("start")
             self.started = True
             self.show_current()
-            return
 
-        if not self.started: return
+        else:
+            done = False
+
+        if not self.started or done: return
+
+        elif self.last_key == '?':
+            #print("bindings")
+            messagebox.showinfo("Modal", SelectorView.KEY_BINDING_HELP)
 
         elif self.last_key == 'r':
             #print("reload")
