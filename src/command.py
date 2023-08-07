@@ -24,6 +24,11 @@ def run_select(source_dir, args, dummy=False):
         in source_dir.glob('**/*')
         if not path.is_dir() and path.suffix[1:] in KNOWN_EXTS
     )
+    # TODO sort option
+    # image similarity??
+    # list-preview in the bottom?
+    # configurable outdir name <- optionally included in selection
+    # UI to manage pipelining
 
     # FIXME
     ignored_files = list(
@@ -34,7 +39,7 @@ def run_select(source_dir, args, dummy=False):
     )
 
     if dummy:
-        sels = [ (p, i%10) for i, p in enumerate(supported_files) ]
+        sels = [ (p, i%5 if i%4>0 else None) for i, p in enumerate(supported_files) ]
         view.contd = True
     else:
         view.load(supported_files, (args.frontq_min, args.frontq_max, args.backq_min, args.backq_max))
@@ -46,7 +51,7 @@ def run_select(source_dir, args, dummy=False):
         path = str(path)[len(str(source_dir))+1:]
         selections.append((path, sel))
 
-    return selections if view.contd else None
+    return (selections, ignored_files) if view.contd else None
 
 
 from handy_format import format_name
@@ -56,14 +61,15 @@ def run_map(selections, source_dir, target_dir, name_format):
     assert not target_dir.exists() or target_dir.is_dir()
 
     mapping = [] # [ (src, dst) ]
+    skipped = []
     dsts = set()
 
     exists = lambda path: (target_dir / path).exists() or path in dsts
 
     for i, (src, dir) in enumerate(selections):
-        # TODO if dir is None: # skipped files
-        #     skipped.append(dir)
-        #     continue
+        if dir is None: # skipped files
+            skipped.append(src)
+            continue
 
         namef = trashcan_namef if dir == 0 else name_format
         dst, j = format_name(namef, i, src, dir, source_dir, exists)
@@ -71,7 +77,7 @@ def run_map(selections, source_dir, target_dir, name_format):
         mapping.append((src,dst))
         dsts.add(dst)
 
-    return mapping
+    return mapping, skipped
 
 
 import shutil

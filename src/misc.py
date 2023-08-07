@@ -37,15 +37,15 @@ import PIL.ImageTk
 def load_tk_image(path, maxw, maxh):
     img = PIL.Image.open(str(path))
     width, height = img.size
-    ratio = min(maxw/width, maxh/height)
+    ratio:int = min(maxw/width, maxh/height)
     if ratio < 1 or 5 < ratio:
         # int cast is mandatory. otherwise, img.resize returns None
-        img = img.resize((int(width*ratio), int(height*ratio)), PIL.Image.ANTIALIAS)
+        img = img.resize((int(width*ratio), int(height*ratio)), PIL.Image.ANTIALIAS) # type: ignore
     return PIL.ImageTk.PhotoImage(img)
 
 
 import json
-def dump_selection(f, source_dir, selections):
+def dump_selection(f, source_dir, ignored, selections):
     encode = json.JSONEncoder().encode
 
     # using custom json encoding; faster, neater
@@ -55,15 +55,30 @@ def dump_selection(f, source_dir, selections):
     f.write(f'  "type": "selection_dump",\n')
     f.write(f'  "working_dir": {encode(str(Path.cwd()))},\n')
     f.write(f'  "source_dir": {encode(str(source_dir))},\n')
-    #f.write(f'  "sort_by": ...,\n')
-    # TODO FYI fields; no. images, no. ignored, no. NA, no. trashed
-    # TODO remove source_dir from path
+    #TODO f.write(f'  "sort_by": ...,\n')
 
+    f.write(f'  "ignored_files": [\n') # FYI field
+    for i, path in enumerate(ignored):
+        if i > 0: f.write(',\n')
+        f.write(f'    {encode(str(path))}')
+    f.write(f'\n  ],\n')
+
+    sel_count = [0] * 11 # sel_count[10] = sel_count[-1] = skipped
     f.write(f'  "selections": [\n')
     for i, (path, sel) in enumerate(selections):
         if i > 0: f.write(',\n')
-        f.write(f'    [ {sel},\t{encode(str(path))} ]')
-    f.write(f'\n  ]\n')
+        f.write(f'    [ {sel if sel is not None else "null"},\t{encode(str(path))} ]')
+        if sel is not None:
+            sel_count[sel] += 1
+        else:
+            sel_count[-1] += 1
+    f.write(f'\n  ],\n')
+
+    f.write(f'  "num_ignored": {len(ignored)},\n') # FYI field
+    f.write(f'  "num_selection": {len(selections)-sel_count[-1]},\n') # FYI field
+    f.write(f'  "num_skipped": {sel_count[-1]},\n') # FYI field
+    f.write(f'  "num_each": [ {", ".join(map(str,sel_count[:-1]))} ]\n') # FYI field
+
     f.write('}\n')
 
 def load_selection(f):
@@ -72,7 +87,7 @@ def load_selection(f):
     except json.decoder.JSONDecodeError as e:
         raise TophoError(f'JSON error in selections file: {e}')
 
-    for x in ['version', 'type', 'source_dir', "selections"]:
+    for x in ['version', 'type', 'source_dir', "selections", ]:
         if x not in dump:
             raise TophoError(f"'{x}' not specified in selections dump")
 
@@ -96,14 +111,14 @@ def load_selection(f):
     for i, row in enumerate(dump['selections']):
         try:
             (sel, path) = row
-            data['selections'].append((Path(path), int(sel)))
+            data['selections'].append((Path(path), None if sel is None else int(sel)))
         except:
-            TophoError(f"Malformed in {i}'th selection ({row}) in selections dump")
+            raise TophoError(f"Malformed in {i}'th selection ({row}) in selections dump")
 
     return data
 
 
-def dump_mapping(f, mappings, source_dir, target_dir):
+def dump_mapping(f, skipped, mappings, source_dir, target_dir):
     encode = json.JSONEncoder().encode
 
     # using custom json encoding; faster, neater
@@ -113,12 +128,20 @@ def dump_mapping(f, mappings, source_dir, target_dir):
     f.write(f'  "type": "mapping_dump",\n')
     f.write(f'  "source_dir": {encode(str(source_dir))},\n')
     f.write(f'  "target_dir": {encode(str(target_dir))},\n')
+    f.write(f'  "num_skipped": {len(skipped)},\n') # FYI field
+
+    f.write(f'  "skipped": [\n') # FYI field
+    for i, src in enumerate(skipped):
+        if i > 0: f.write(',\n')
+        f.write(f'    {encode(str(src))}')
+    f.write(f'\n  ],\n')
 
     f.write(f'  "mapping": [\n')
     for i, (src, dst) in enumerate(mappings):
         if i > 0: f.write(',\n')
         f.write(f'    [ {encode(str(src))},\t{encode(str(dst))} ]')
     f.write(f'\n  ]\n')
+
     f.write('}\n')
 
 def load_mapping(f):

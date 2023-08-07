@@ -111,9 +111,9 @@ def run(args):
         ret = command.run_select(source_dir, args, True)
         if ret is None: # quit while selecting
             raise TophoError("Quitting on command")
-        selections = ret
+        selections, ignored = ret
     else:
-        selections = None
+        selections, ignored = None, None
 
     # STORE SELECT
     if selections:
@@ -125,7 +125,7 @@ def run(args):
             f = None
 
         if f is not None:
-            dump_selection(f, source_dir, selections) # TODO what if fails?
+            dump_selection(f, source_dir, ignored, selections) # TODO what if fails?
 
         if args.selections:
             assert(f)
@@ -157,9 +157,9 @@ def run(args):
 
     # RUN MAP
     if cmd_flags & 2:
-        mapping = command.run_map(selections, source_dir, args.target, args.name_format)
+        mapping, skipped = command.run_map(selections, source_dir, args.target, args.name_format)
     else:
-        mapping = None
+        mapping, skipped = None, None
 
     # STORE MAPPING
     if mapping:
@@ -171,7 +171,7 @@ def run(args):
             f = None
 
         if f is not None:
-            dump_mapping(f, mapping, source_dir, args.target)
+            dump_mapping(f, skipped, mapping, source_dir, args.target)
 
         if args.mapping:
             assert(f)
