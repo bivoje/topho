@@ -198,7 +198,7 @@ def format_name(formstr, index, rel_path, sel, source_dir, exists=lambda p: p.ex
     global format_name_lookup_cache
     path = source_dir / rel_path
 
-    size = HandyInt(os.path.getsize(path)),
+    size = HandyInt(os.path.getsize(path))
     # note that windows' file explorer's 'date' has more complex method of determination
     # if photo has no taken-time info, it usually is modified date (not created)
     # mod date is kept unchanged when copying & moving (to other drive)

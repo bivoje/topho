@@ -96,6 +96,11 @@ def run(args):
 
         args.target = Path(dst)
 
+    dirnames= ['<TRASH>'] + [''] * 9
+    for num,dirname in args.dirnames:
+        assert(num > 0)
+        dirnames[num] = dirname
+
     # RESTORE? SOURCE
     source_dir = None
     if cmd_flags & 1:
@@ -108,10 +113,10 @@ def run(args):
 
     # RUN SELECT
     if cmd_flags & 1:
-        ret = command.run_select(source_dir, args)#, True)
+        ret = command.run_select(source_dir, dirnames, args, True)
         if ret is None: # quit while selecting
             raise TophoError("Quitting on command")
-        selections, ignored = ret
+        selections, ignored, dirnames = ret
     else:
         selections, ignored = None, None
 
@@ -125,7 +130,7 @@ def run(args):
             f = None
 
         if f is not None:
-            dump_selection(f, source_dir, ignored, selections) # TODO what if fails?
+            dump_selection(f, source_dir, ignored, dirnames, selections) # TODO what if fails?
 
         if args.selections:
             assert(f)
@@ -140,13 +145,13 @@ def run(args):
             stdin_ignored = True
         else:
             raise TophoError("can't restore selections")
+        if not args.selections: f.close()
 
         selections_dump = load_selection(f) # TODO what if fails?
         source_dir = selections_dump["source_dir"]
         selections = selections_dump["selections"]
-
-        if not args.selections:
-            f.close()
+        dirnames = [ a or b for a,b in zip(dirnames, selections_dump["dirnames"]) ]
+        # override preset if selection has configurations
 
     # TODO implement this when cache manager become available
     # if not view.contd:
@@ -157,7 +162,7 @@ def run(args):
 
     # RUN MAP
     if cmd_flags & 2:
-        mapping, skipped = command.run_map(selections, source_dir, args.target, args.name_format)
+        mapping, skipped = command.run_map(selections, dirnames, source_dir, args.target, args.name_format, args.discard_trash)
     else:
         mapping, skipped = None, None
 

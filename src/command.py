@@ -4,14 +4,14 @@ from misc import *
 from selector_view import SelectorView
 
 
-def run_select(source_dir, args, dummy=False):
+def run_select(source_dir, dirnames, args, dummy=False):
     if args.player is None: raise TophoError("video player not provided")
     if args.arx    is None: raise TophoError("un-archiver not provided")
 
     view = SelectorView(args.maxw, args.maxh,
         #lambda path: subprocess.Popen([str(args.player), "--loop=inf", str(path)]).wait(), # FIXME waiting prevents the program from updating image
         lambda path: subprocess.Popen([str(args.player), "--loop=inf", str(path)]),
-        SCRIPTDIR.parent/"resources")
+        dirnames, SCRIPTDIR.parent/"resources")
 
     # TODO implement this when cache manager become available
     # if arx_proc is not None:
@@ -27,7 +27,6 @@ def run_select(source_dir, args, dummy=False):
     # TODO sort option
     # image similarity??
     # list-preview in the bottom?
-    # configurable outdir name <- optionally included in selection
     # UI to manage pipelining
 
     # FIXME
@@ -51,13 +50,13 @@ def run_select(source_dir, args, dummy=False):
         path = str(path)[len(str(source_dir))+1:]
         selections.append((path, sel))
 
-    return (selections, ignored_files) if view.contd else None
+    return (selections, ignored_files, view.dirnames) if view.contd else None
 
 
 from handy_format import format_name
 
-def run_map(selections, source_dir, target_dir, name_format):
-    trashcan_namef = "{modified}[-[{hier:]-]!}{name}_{dup}"
+def run_map(selections, dirnames, source_dir, target_dir, name_format, discard_trash):
+    trashcan_namef = "{modified}[-[{hier:]-]!}{name}_{dup}" # FIXME, is this really useful?
     assert not target_dir.exists() or target_dir.is_dir()
 
     mapping = [] # [ (src, dst) ]
@@ -72,7 +71,13 @@ def run_map(selections, source_dir, target_dir, name_format):
             continue
 
         namef = trashcan_namef if dir == 0 else name_format
-        dst, j = format_name(namef, i, src, dir, source_dir, exists)
+        if dir == 0:
+            if discard_trash:
+                dst, j = None, 0
+            else:
+                dst, j = format_name(namef, i, src, "0" or str(dir), source_dir, exists)
+        else:
+            dst, j = format_name(namef, i, src, dirnames[dir] or str(dir), source_dir, exists)
 
         mapping.append((src,dst))
         dsts.add(dst)
@@ -85,13 +90,11 @@ from time import sleep
 
 # no more file
 def run_commit(mapping, source_dir, target_dir, args):
-    temp_dir, ignored_files = None, []
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
     # files couldn't be moved
     remaining = [] # :: [(reason, idx, dup, path, dir, note)]
-    skipped = []
 
     for src_, dst_ in mapping:
         src, dst = source_dir / src_, target_dir / dst_
@@ -100,7 +103,7 @@ def run_commit(mapping, source_dir, target_dir, args):
             remaining.append(('MISSING', src_, dst_, ""))
             continue
 
-        if dst.exists():
+        if dst is not None and dst.exists():
             remaining.append(('DUP', src_, dst_, ""))
             continue
 
@@ -109,6 +112,11 @@ def run_commit(mapping, source_dir, target_dir, args):
             continue
 
         try:
+
+            if dst is None:
+                src.unlink()
+                continue
+
             if not dst.parent.exists():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 sleep(args.filesystem_latency) # wait for filesystem update

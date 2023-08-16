@@ -30,6 +30,8 @@ DEBUG = True
 def debug(*args, **kargs):
     if DEBUG: print("topho_debug:", *args, **kargs)
 
+def check_dirname(dirname):
+    return not any(c in dirname for c in '/\\:*?"<>|')
 
 import PIL.Image
 import PIL.ImageTk
@@ -45,8 +47,9 @@ def load_tk_image(path, maxw, maxh):
 
 
 import json
-def dump_selection(f, source_dir, ignored, selections):
+def dump_selection(f, source_dir, ignored, dirnames, selections):
     encode = json.JSONEncoder().encode
+    ignored = list(ignored)
 
     # using custom json encoding; faster, neater
     f.write('{\n')
@@ -56,6 +59,13 @@ def dump_selection(f, source_dir, ignored, selections):
     f.write(f'  "working_dir": {encode(str(Path.cwd()))},\n')
     f.write(f'  "source_dir": {encode(str(source_dir))},\n')
     #TODO f.write(f'  "sort_by": ...,\n')
+
+    if any(dirnames):
+        f.write(f'  "dirnames": [\n') # FYI field
+        for i, path in enumerate(dirnames):
+            if i > 0: f.write(',\n')
+            f.write(f'    {encode(str(path))}')
+        f.write(f'\n  ],\n')
 
     f.write(f'  "ignored_files": [\n') # FYI field
     for i, path in enumerate(ignored):
@@ -103,6 +113,16 @@ def load_selection(f):
         data['source_dir'] = Path(dump['source_dir'])
     except:
         raise TophoError(f"Malformed 'source_dir' ({dump['source_dir']}) in selections dump")
+
+    data['dirnames'] = ['<TRASH>'] + [''] * 9
+    if 'dirnames' in dump:
+        if not isinstance(dump['dirnames'], list):
+            raise TophoError("'dirnames' is not iterable in selections dump")
+
+        for i, dirname in enumerate(dump['dirnames']):
+            if (i == 0 and dirname != "<TRASH>") or (i != 0 and not check_dirname(dirname)):
+                raise TophoError(f"Malformed in {i}'th dirname ({dirname}) in selections dump")
+            data['dirnames'][i] = dirname
 
     if not isinstance(dump['selections'], list):
         raise TophoError("'selections' is not iterable in selections dump")
@@ -179,7 +199,7 @@ def load_mapping(f):
     for i, row in enumerate(dump['mapping']):
         try:
             (src, dst) = row
-            data['mapping'].append((Path(src), Path(dst)))
+            data['mapping'].append((Path(src), None if dst is None else Path(dst)))
         except:
             raise TophoError(f"Malformed in {i}'th selection ({row}) in mapping dump")
 

@@ -5,7 +5,7 @@ from misc import *
 from loading_queue import ImageLoadingQueue
 
 class SelectorView:
-    def __init__(self, maxw, maxh, run_player, STATIC):
+    def __init__(self, maxw, maxh, run_player, dirnames, STATIC):
         self.maxw = maxw
         self.maxh = maxh
         self.run_player = run_player
@@ -29,6 +29,9 @@ class SelectorView:
         self.started = False
         self.contd = False
 
+        self.check_dirname = self.root.register(check_dirname)
+        self.dirnames = dirnames
+
     def load(self, source_files, qparam):
         self.fqm, self.fqM, self.bqm, self.bqM = qparam
         srcfiles = [(path, None) for path in source_files]
@@ -50,7 +53,7 @@ class SelectorView:
                 title = "LOADING" # TODO can we do automatic refresh?
             else:
                 img = ret[0]
-                title = ('-' if ret[2] is None else str(ret[2])) + " " + ret[1].name
+                title = ('-' if ret[2] is None else f"{str(ret[2])} {self.dirnames[ret[2]] or ''}") + " " + ret[1].name
 
         if img is None: # unrecognized type
             img = self.unrecog_img
@@ -72,6 +75,7 @@ r:\treload
 0-9:\tselect
 u:\tundo
 U:\tredo
+d:\ttag
 ?:\thelp
 """
 
@@ -144,6 +148,35 @@ U:\tredo
                 img, orig_path, _ = ret
                 self.back_queue.put((img, orig_path, None))
             self.show_current()
+
+        # https://tkdocs.com/shipman/entry.html
+        elif self.last_key == 't':
+            #print("tag, dirname")
+            win = tkinter.Toplevel(self.root)
+            entries = []
+
+            def apply(event=None):
+                for i, entry in enumerate(entries):
+                    self.dirnames[i] = entry.get()
+                win.destroy()
+
+            tkinter.Label(win, text="selection key").grid(row=0, column=0, padx=20, pady=15)
+            tkinter.Label(win, text=f"directory name").grid(row=0, column=1, padx=20, pady=15)
+            for i in range(10):
+                tkinter.Label(win, text=f"{i}:").grid(row=i+1, column=0, padx=20)#, padx=20, pady=15)
+                entry = tkinter.Entry(win, width=50)
+                entry.grid(row=i, column=1, padx=75)
+                entry.insert(0, self.dirnames[i])
+                entry.bind('<Key-Return>', apply)
+                entry.config(validate='all', validatecommand=(self.check_dirname, '%P'))
+                entry.config(state='normal' if i > 0 else 'readonly')
+                entries.append(entry)
+            tkinter.Button(win, text="Apply", command=apply).grid(row=11, column=0, pady=15)
+            tkinter.Button(win, text="Cancel", command=win.destroy).grid(row=11, column=1, pady=15)
+
+            win.wait_visibility()
+            win.grab_set()
+            win.focus_set()
 
 
     def key_release(self, e):

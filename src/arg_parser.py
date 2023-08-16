@@ -76,6 +76,14 @@ def executable_(s):
     try: executable(s); return True
     except argparse.ArgumentTypeError: return False
 
+def dirname_assign(s):
+    if '=' not in s: raise argparse.ArgumentTypeError(f"dirname assignment should be in form '<num>=<dirname>'")
+    num, dirname = s.split('=',1)
+    try: num = int(num)
+    except: raise argparse.ArgumentTypeError(f"'{num}' is not a valid number in dirname assignment")
+    if num <= 0: raise argparse.ArgumentTypeError(f"can't assign dirname to nonpositive selection number '{num}'")
+    if not check_dirname(dirname): raise argparse.ArgumentTypeError(f"invalid dirname given '{dirname}'")
+    return (num, dirname)
 
 # name format argument validator
 # Handy* formatters are statically error checked. <- run once, run always.
@@ -234,7 +242,7 @@ NAMEF formatting:
     parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}',
         help="if specified, shows program's version number and exit ignoring any other commands")
 
-    parser.add_argument('-c', choices=['select','map','commit'], action='append', metavar="COMMAND", dest="command",
+    parser.add_argument('-c', choices=['select','map','commit'], action='append', metavar="COMMAND", dest="command", default=[],
         help='subcommand to execute, one of "select", "map", "commit"')
 
     select_options = parser.add_argument_group('select options',
@@ -264,6 +272,8 @@ NAMEF formatting:
         help='minimum # of images loaded for un-doing, increase if backward loading is too slow')
     select_options.add_argument('--backq_max',  type=positive_int, metavar='BQM', default=5,
         help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
+    select_options.add_argument('--dirname', type=dirname_assign, metavar='NUM=DIRNAME', action='extend', dest="dirnames", default=[], nargs='+', # TODO enable specifying full-path?
+        help='preset for dirnames assigned to each selection numbers. can work with "map" subcommand either.')
 
     map_options = parser.add_argument_group('map options',
         description='Options for "map" subcommand. Applies group selection to the filenames and generates mapping file.')
@@ -273,7 +283,8 @@ NAMEF formatting:
         help='path of directory to store organized images, defaults to current directory, created if not exists')
     map_options.add_argument('--name_format', type=nameformat, metavar='NAMEF', default='{hier._1}{name}{dup: (!)}',
         help="python style formatstring for moved file names, see <NAMEF> section")
-    # TODO configurable 0-9 directories
+    map_options.add_argument('--discard_trash', action='store_true',
+        help='delete trashed file rightaway instead of keeping in separate dir')
 
     commit_options = parser.add_argument_group('commit options',
         description='Options for "commit" subcommand. Moves/Copies files as described in mapping dump.')
