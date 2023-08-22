@@ -229,6 +229,7 @@ from datetime import datetime
 import subprocess
 import shutil
 import os
+import shlex
 
 from datetime import timedelta
 
@@ -257,7 +258,7 @@ def get_cachedir(arxfile, arx, START_TIME):
 
     # no previous cache found, create new one
     cachedir = arxfile.parent / f"tempho_{START_TIME:%Y%m%d-%H%M%S}_{name}"
-    command = [str(arx), 'x', '-target:auto', '-y', '-o:'+str(cachedir), str(arxfile)]
+    command = [ tok.format(dir=str(cachedir), file=str(arxfile)) for tok in shlex.split(arx) ]
     arx_proc = subprocess.Popen(command)
     if 0 != arx_proc.wait(): raise TophoError(f"Unarchive command failed: {command}")
     # TODO can we gain time here??

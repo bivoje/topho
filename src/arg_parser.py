@@ -263,15 +263,13 @@ NAMEF formatting:
         help='maximum width of image, defaults to screen width * 0.8')
     select_options.add_argument('--maxh', type=positive_int, default=int(windll.user32.GetSystemMetrics(1)*0.8),
         help='maximum height of image, defaults to screen height * 0.8')
-    select_options.add_argument('--player', type=executable, metavar='PLYPATH', default = "mpv.exe" if executable_("mpv.exe") else None,
-        help='path to video player executable')
+    select_options.add_argument('--player', metavar='PLYPATH', # FIXME malicious user may exploit
+        default = "mpv.exe --loop=inf {file}" if executable_("mpv.exe") else None,
+        help='command for video player invocation. use "{file}" for filepath placeholder')
         # '--mpv mpv' resolved to 'mpv.COM' which prints some info to stdout by default, while 'mpv.exe' doesn't.
-    #remove select_options.add_argument('--player_opt', #type=executable, metavar='PLYPATH', default="mpv.exe", use format-string instead
-    #    help='options used for video player invocation')
-    select_options.add_argument('--arx', type=executable, metavar='ARXPATH', default = "bandizip.exe" if executable_("bandizip.exe") else None,
+    select_options.add_argument('--arx', metavar='ARXPATH', # FIXME malicious user may exploit
+        default = "bandizip.exe x -target:auto -y -o:{dir} {file}" if executable_("bandizip.exe") else None,
         help='path to un-archiver executable')
-    select_options.add_argument('--arx_opt', #type=executable, metavar='ARXPATH', default="Bandizip.exe", # TODO actually use them?
-        help='options used for un-archiver invocation')
     select_options.add_argument('--frontq_min', type=positive_int, metavar='FQm', default=3,
         help='minimum # of images pre-loaded, increase if forward loading is too slow')
     select_options.add_argument('--frontq_max', type=positive_int, metavar='FQM', default=10,

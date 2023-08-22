@@ -1,4 +1,5 @@
 import subprocess
+import shlex
 
 from misc import *
 from selector_view import SelectorView
@@ -6,16 +7,11 @@ from selector_view import SelectorView
 
 def run_select(source_dir, dirnames, args, dummy=False):
     if args.player is None: raise TophoError("video player not provided")
-    if args.arx    is None: raise TophoError("un-archiver not provided")
 
     view = SelectorView(args.maxw, args.maxh,
-        #lambda path: subprocess.Popen([str(args.player), "--loop=inf", str(path)]).wait(), # FIXME waiting prevents the program from updating image
-        lambda path: subprocess.Popen([str(args.player), "--loop=inf", str(path)]),
+        #lambda path: subprocess.Popen([ tok.format(file=path) for tok in shlex.split(args.player) ]).wait(), # FIXME waiting prevents the program from updating image
+        lambda path: subprocess.Popen([ tok.format(file=path) for tok in shlex.split(args.player) ]),
         dirnames, SCRIPTDIR.parent/"resources")
-
-    # TODO implement this when cache manager become available
-    # if arx_proc is not None:
-    #     arx_proc.wait()
 
     KNOWN_EXTS = VIDEO_EXTS | IMAGE_EXTS
     files = (
