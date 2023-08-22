@@ -85,6 +85,14 @@ def dirname_assign(s):
     if not check_dirname(dirname): raise argparse.ArgumentTypeError(f"invalid dirname given '{dirname}'")
     return (num, dirname)
 
+def sort_type(s):
+    while True:
+        if not s: break
+        t = s if s[0] in ['+', '^'] else '+'+s
+        if t[1:] not in ['created', 'modified', 'accessed', 'size', 'name', 'namelen', 'ext' ]: break
+        return (t[0] == '+', t[1:])
+    raise argparse.ArgumentTypeError(f"invalid sort type given '{s}'")
+
 # name format argument validator
 # Handy* formatters are statically error checked. <- run once, run always.
 
@@ -258,11 +266,11 @@ NAMEF formatting:
     select_options.add_argument('--player', type=executable, metavar='PLYPATH', default = "mpv.exe" if executable_("mpv.exe") else None,
         help='path to video player executable')
         # '--mpv mpv' resolved to 'mpv.COM' which prints some info to stdout by default, while 'mpv.exe' doesn't.
-    select_options.add_argument('--player_opt', #type=executable, metavar='PLYPATH', default="mpv.exe",
-        help='options used for video player invocation')
+    #remove select_options.add_argument('--player_opt', #type=executable, metavar='PLYPATH', default="mpv.exe", use format-string instead
+    #    help='options used for video player invocation')
     select_options.add_argument('--arx', type=executable, metavar='ARXPATH', default = "bandizip.exe" if executable_("bandizip.exe") else None,
         help='path to un-archiver executable')
-    select_options.add_argument('--arx_opt', #type=executable, metavar='ARXPATH', default="Bandizip.exe",
+    select_options.add_argument('--arx_opt', #type=executable, metavar='ARXPATH', default="Bandizip.exe", # TODO actually use them?
         help='options used for un-archiver invocation')
     select_options.add_argument('--frontq_min', type=positive_int, metavar='FQm', default=3,
         help='minimum # of images pre-loaded, increase if forward loading is too slow')
@@ -274,6 +282,9 @@ NAMEF formatting:
         help='maximum # of images kept loaded after organizing, increase if you frequently undo & redo')
     select_options.add_argument('--dirname', type=dirname_assign, metavar='NUM=DIRNAME', action='extend', dest="dirnames", default=[], nargs='+', # TODO enable specifying full-path?
         help='preset for dirnames assigned to each selection numbers. can work with "map" subcommand either.')
+    select_options.add_argument('--sort', type=sort_type, metavar='SORT_BY', action='extend', dest='sort_by', nargs='+',
+        help='how to sort files for selection. can be specified multiple times for sub-ordering.'
+        'should one of created, modified, accessed, name, size; prefixed by +/- for increasing/decreasing order.')
 
     map_options = parser.add_argument_group('map options',
         description='Options for "map" subcommand. Applies group selection to the filenames and generates mapping file.')

@@ -130,7 +130,7 @@ def run(args):
             f = None
 
         if f is not None:
-            dump_selection(f, source_dir, ignored, dirnames, selections) # TODO what if fails?
+            dump_selection(f, source_dir, ignored, args.sort_by, dirnames, selections) # TODO what if fails?
 
         if args.selections:
             assert(f)

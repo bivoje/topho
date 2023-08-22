@@ -18,24 +18,43 @@ def run_select(source_dir, dirnames, args, dummy=False):
     #     arx_proc.wait()
 
     KNOWN_EXTS = VIDEO_EXTS | IMAGE_EXTS
-    supported_files = (
+    files = (
         path
         for path
         in source_dir.glob('**/*')
-        if not path.is_dir() and path.suffix[1:] in KNOWN_EXTS
+        if not path.is_dir()
     )
-    # TODO sort option
+
+    ignored_files   = filter(lambda p: p.suffix[1:] not in KNOWN_EXTS, files)
+    supported_files = filter(lambda p: p.suffix[1:]     in KNOWN_EXTS, files)
+
+    if args.sort_by:
+        def get_meta(path, by):
+            if by == 'created':
+                return os.path.getctime(path)
+            elif by == 'modified':
+                return os.path.getmtime(path)
+            elif by == 'accessed':
+                return os.path.getatime(path)
+            elif by == 'size':
+                return os.path.getsize(path)
+            elif by == 'name':
+                return path.stem
+            elif by == 'namelen':
+                return len(path.stem)
+            elif by == 'ext':
+                return path.suffix
+            else: assert(False)
+
+        supported_files = list(supported_files)
+        for by in reversed(args.sort_by):
+            supported_files.sort(key = lambda p: get_meta(p, by[1]), reverse = not by[0])
+
+    # TODO
     # image similarity??
     # list-preview in the bottom?
     # UI to manage pipelining
 
-    # FIXME
-    ignored_files = list(
-        path
-        for path
-        in source_dir.glob('**/*')
-        if not path.is_dir() and not path.suffix[1:] in KNOWN_EXTS
-    )
 
     if dummy:
         sels = [ (p, i%5 if i%4>0 else None) for i, p in enumerate(supported_files) ]

@@ -47,7 +47,7 @@ def load_tk_image(path, maxw, maxh):
 
 
 import json
-def dump_selection(f, source_dir, ignored, dirnames, selections):
+def dump_selection(f, source_dir, ignored, sort_by, dirnames, selections):
     encode = json.JSONEncoder().encode
     ignored = list(ignored)
 
@@ -58,7 +58,7 @@ def dump_selection(f, source_dir, ignored, dirnames, selections):
     f.write(f'  "type": "selection_dump",\n')
     f.write(f'  "working_dir": {encode(str(Path.cwd()))},\n')
     f.write(f'  "source_dir": {encode(str(source_dir))},\n')
-    #TODO f.write(f'  "sort_by": ...,\n')
+    f.write(f'  "sort_by": [ ' + ", ".join(f'"{"+" if by[0] else "-"}{by[1]}"' for by in sort_by) + ' ],\n') # FYI field
 
     if any(dirnames):
         f.write(f'  "dirnames": [\n') # FYI field
