@@ -1,5 +1,6 @@
 from collections import deque
 from threading import Thread, Lock, Semaphore
+import logging
 
 from misc import *
 
@@ -29,14 +30,14 @@ class ImageLoadingQueue:
     # starts the loader
     def run(self):
         if self.thread is not None:
-            print("WARNING: ImageLoadingQueue is already running")
+            logging.warning("WARNING: ImageLoadingQueue is already running")
             return
         self.thread = Thread(target=self.loader_func, name="loader")
         self.thread.start()
 
     def quit(self):
         if self.thread is None:
-            print("WARNING: ImageLoadingQueue is already stopped")
+            logging.warning("WARNING: ImageLoadingQueue is already stopped")
             return
         self.stop = True
         if self.task_lock.locked(): self.task_lock.release()
@@ -151,4 +152,4 @@ class ImageLoadingQueue:
         return True
 
     def print(self, *args, **kargs):
-        if self.debug: print(*args, **kargs)
+        if self.debug: logging.debug(*args, **kargs)

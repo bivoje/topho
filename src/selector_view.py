@@ -1,5 +1,6 @@
 import tkinter
 from tkinter import messagebox
+import logging
 
 from misc import *
 from loading_queue import ImageLoadingQueue
@@ -86,16 +87,16 @@ d:\ttag
         done = True
 
         if self.last_key == '\x1b' or self.last_key == 'q':
-            #print("quit")
+            logging.debug("selector_view:" "quit")
             self.root.destroy()
 
         elif self.last_key == 'c':
-            #print("continue")
+            logging.debug("selector_view:" "continue")
             self.contd = True
             self.root.destroy()
 
         elif self.last_key == ' ' and not self.started:
-            #print("start")
+            logging.debug("selector_view:" "start")
             self.started = True
             self.show_current()
 
@@ -105,15 +106,15 @@ d:\ttag
         if not self.started or done: return
 
         elif self.last_key == '?':
-            #print("bindings")
+            logging.debug("selector_view:" "bindings")
             messagebox.showinfo("Modal", SelectorView.KEY_BINDING_HELP)
 
         elif self.last_key == 'r':
-            #print("reload")
+            logging.debug("selector_view:" "reload")
             self.show_current()
 
         elif '0' <= self.last_key and self.last_key <= '9':
-            #print("do")
+            logging.debug("selector_view:" "do")
             ret = self.front_queue.get(block=False)
             if ret: # no more data, do nothing
                 img, orig_path, _ = ret
@@ -121,7 +122,7 @@ d:\ttag
             self.show_current()
 
         elif self.last_key == 'u':
-            #print("undo")
+            logging.debug("selector_view:" "undo")
             ret = self.back_queue.get()
             if ret is None: # at the start
                 self.started = False
@@ -135,14 +136,14 @@ d:\ttag
                 self.show_current()
 
         elif self.last_key == 'U':
-            #print("redo")
+            logging.debug("selector_view:" "redo")
             ret = self.front_queue.get(block=False)
             if ret: # no more data, do nothing
                 self.back_queue.put(ret)
             self.show_current()
 
         elif self.last_key == ' ':
-            #print("skip")
+            logging.debug("selector_view:" "skip")
             ret = self.front_queue.get(block=False)
             if ret: # no more data, do nothing
                 img, orig_path, _ = ret
@@ -151,7 +152,7 @@ d:\ttag
 
         # https://tkdocs.com/shipman/entry.html
         elif self.last_key == 't':
-            #print("tag, dirname")
+            logging.debug("selector_view:" "tag, dirname")
             win = tkinter.Toplevel(self.root)
             entries = []
 

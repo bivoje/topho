@@ -1,5 +1,6 @@
 import subprocess
 import shlex
+import logging
 
 from misc import *
 from selector_view import SelectorView
@@ -123,7 +124,7 @@ def run_commit(mapping, source_dir, target_dir, args):
             continue
 
         if args.dry:
-            print(("copying " if args.keep else "moving ") + str(src) + " to " + str(dst) + "!")
+            logging.info(("copying " if args.keep else "moving ") + str(src) + " to " + str(dst) + "!")
             continue
 
         try:

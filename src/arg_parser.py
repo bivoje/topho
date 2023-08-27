@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 from ctypes import windll
+import logging
 
 from misc import *
 from handy_format import *
@@ -130,7 +131,7 @@ def nameformat(s):
         # other kind of exceptions are an error in the code not namestr
         # but argparse catches them all and hide the message.
         # so we print it here for debugging purpose
-        print("BUG! report to the developer!", repr(e))
+        logging.error("BUG! report to the developer!", repr(e))
         raise e
 
 
@@ -249,6 +250,8 @@ NAMEF formatting:
 
     parser.add_argument('--version', action='version', version=f'%(prog)s {VERSION}',
         help="if specified, shows program's version number and exit ignoring any other commands")
+    parser.add_argument('--logfile', type=writable_file, default=f"topholog_{start_time:iso}.txt", metavar='LOGFILE', # TODO better be memorable names, like zealous_frog?
+        help='path to log file where unmoved file list will be written')
 
     parser.add_argument('-c', choices=['select','map','commit'], action='append', metavar="COMMAND", dest="command", default=[],
         help='subcommand to execute, one of "select", "map", "commit"')
@@ -310,8 +313,6 @@ NAMEF formatting:
 
     # parser.add_argument('--test_names', type=Path, nargs='*',
     #     help='if provided, map name_format on this filename, print then exits')
-    # parser.add_argument('--logfile', type=writable_file, default=f"topholog_{start_time:iso}.txt", # better be memorable names, like zealous_frog
-    #     help='path to log file where unmoved file list will be written')
     # parser.add_argument('--retry', type=existing_readable_file, metavar='LOGFILE',
     #     help='')
 

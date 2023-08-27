@@ -1,6 +1,7 @@
 import sys
 import tkinter.filedialog
 import tkinter.simpledialog
+import logging
 
 import command
 from handy_format import *
@@ -212,7 +213,7 @@ def run(args):
     # STORE REMAIN
     if remain:
         remain_path = Path(f"remain_{START_TIME:iso}.json")
-        print(f"Error! some files could not be moved. see '{remain_path.resolve()}'")
+        logging.error(f"Error! some files could not be moved. see '{remain_path.resolve()}'")
         with open(remain_path, "wt") as f:
             dump_remain(f, source_dir, args.target, remain)
 
@@ -232,8 +233,16 @@ def run(args):
     #     if not args.keep:
     #         try_rmdir_rec(source_dir)
 
+# https://stackoverflow.com/a/46098711
+logging.basicConfig(
+    encoding='utf8', level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.FileHandler(args.logfile), logging.StreamHandler() ]
+)
+
 try:
+    logging.info(f"args: {args}")
     run(args)
 except TophoError as e:
-    print(f"topho: {e}")
+    logging.error(f"topho: {e}")
     exit(1)
