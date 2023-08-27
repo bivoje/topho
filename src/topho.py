@@ -113,7 +113,7 @@ def run(args):
 
     # RUN SELECT
     if cmd_flags & 1:
-        ret = command.run_select(source_dir, dirnames, args, True)
+        ret = command.run_select(source_dir, dirnames, args)#, True)
         if ret is None: # quit while selecting
             raise TophoError("Quitting on command")
         selections, ignored, dirnames = ret
@@ -130,7 +130,10 @@ def run(args):
             f = None
 
         if f is not None:
-            dump_selection(f, source_dir, ignored, args.sort_by, dirnames, selections) # TODO what if fails?
+          try:
+            dump_selection(f, source_dir, ignored, args.sort_by, dirnames, selections)
+          except:
+            raise TophoError(f"Error while dumping selections! {(source_dir, ignored, args.sort_by, dirnames, selections)}")
 
         if args.selections:
             assert(f)
@@ -139,7 +142,7 @@ def run(args):
     # RESTORE SELECT
     elif cmd_flags & 2:
         if args.selections:
-            f = open(args.selections, "rt") # TODO what if fails?
+            f = open(args.selections, "rt")
         elif not stdin_ignored:
             f = sys.stdin
             stdin_ignored = True
@@ -147,7 +150,7 @@ def run(args):
             raise TophoError("can't restore selections")
         if not args.selections: f.close()
 
-        selections_dump = load_selection(f) # TODO what if fails?
+        selections_dump = load_selection(f)
         source_dir = selections_dump["source_dir"]
         selections = selections_dump["selections"]
         dirnames = [ a or b for a,b in zip(dirnames, selections_dump["dirnames"]) ]
@@ -234,4 +237,3 @@ try:
 except TophoError as e:
     print(f"topho: {e}")
     exit(1)
-    # TODO store selections or mappings before exiting when not stored (e.g. dup while commit, etc) -> automatically uses the most recent one when --continue-from arg is omitted

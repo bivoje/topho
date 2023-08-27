@@ -258,7 +258,6 @@ NAMEF formatting:
                   + 'Then generates selection dump file')
     select_options.add_argument('--source', type=existing_directory_or_archive,
         help='path of image directory to organize or an archive file')
-    #select_options.add_argument('--continue_from', type=Path, default=None, # TODO
     select_options.add_argument('--maxw', type=positive_int, default=int(windll.user32.GetSystemMetrics(0)*0.8),
         help='maximum width of image, defaults to screen width * 0.8')
     select_options.add_argument('--maxh', type=positive_int, default=int(windll.user32.GetSystemMetrics(1)*0.8),
